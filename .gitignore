@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+*.egg
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+.ruff_cache/
+
+# VitePress
+docs/node_modules/
+docs/.vitepress/cache/
+docs/.vitepress/dist/
+
+# Config (may contain site coordinates / personal data)
+.env
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*~
+
+# Claude Code — track .claude/skills/ but ignore machine-local files
+.claude/settings.local.json
+.claude/worktrees/

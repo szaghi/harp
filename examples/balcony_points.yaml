@@ -1,0 +1,20 @@
+# Measured horizon vertices for `harp horizon` — magnetic azimuths from the
+# phone; the magnetic->true correction is applied when building the .hrz.
+#
+# Only the vertices where the profile changes slope are needed (N.I.N.A.
+# interpolates linearly). Blocked sectors: altitude 90 on both wall edges.
+#
+# Declination for your site: NOAA IGRF/WMM calculator (positive towards East).
+# Use 0.0 if the measuring app already outputs TRUE azimuth.
+
+declination: 4.10   # Castelli Romani (41.738, 12.890), WMM 2026-07
+blocked_alt: 90.0
+
+points:
+  #  [az_mag, alt]
+  - [107.0,  7.0]   # RIGHT edge: end of clear view (ESE)
+  - [108.0, 90.0]   # right after, the house wall begins -> blocked
+  - [335.0, 90.0]   # wall up to here
+  - [336.0,  6.0]   # LEFT edge: start of clear view (NNW)
+  # --- open arc 336->0->107: assumed clear (~6-7 deg ridge) ---
+  # --- add INNER vertices here: railing, roof edge, buildings ---

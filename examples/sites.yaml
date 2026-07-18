@@ -1,0 +1,60 @@
+# =====================================================================
+# Observing sites and optical setups for night_planner.py
+# ---------------------------------------------------------------------
+# - "sites"  collect geographic position + horizon file (.hrz).
+# - "optics" collect optical train (focal length) + sensor.
+# - default_site / default_optics: used when --site / --optics are omitted.
+# - Command-line options (--lat, --focal, ...) always override these values.
+# - Remember: every .hrz is in TRUE NORTH (declination already applied when
+#   the file was created with generate_horizon.py).
+# =====================================================================
+
+default_site:   balcony
+default_optics: newton800
+
+# --- global filters (optional; otherwise the script defaults apply) ---
+mag_limit: 11.0     # magnitude limit for pyongc objects (Messier/NGC)
+moon_sep:  30.0     # minimum Moon separation (deg)
+min_hours: 1.0      # minimum usable hours to keep a target
+top:       40       # rows shown on screen
+
+# =====================================================================
+# OBSERVING SITES
+# =====================================================================
+sites:
+
+  balcony:
+    label: "Castelli Balcony"
+    hrz:   balcony.hrz
+    lat:   41.738026
+    lon:   12.889862      # longitude East positive
+    elev:  300            # elevation (m)
+    tz:    Europe/Rome
+
+  # --- example second site (adjust values and create its own .hrz) ---
+  mountain:
+    label: "Mountain (example)"
+    hrz:   mountain.hrz    # <-- generate its horizon for that location
+    lat:   46.500
+    lon:   11.350
+    elev:  1200
+    tz:    Europe/Rome
+
+# =====================================================================
+# OPTICAL SETUPS (focal length + sensor)
+#   sensor: a preset name inside the script, or 'WxH' in mm.
+# =====================================================================
+optics:
+
+  newton800:              # Newton 200/800 f/4 + ToupTek ATR2600C (IMX571)
+    focal:  800
+    sensor: "23.5x15.7"
+
+  # --- examples of other optical trains ---
+  newton800_reducer:      # with 0.95x coma corrector / reducer
+    focal:  760
+    sensor: "23.5x15.7"
+
+  refractor530:           # 530 mm refractor + full-frame
+    focal:  530
+    sensor: "36x24"

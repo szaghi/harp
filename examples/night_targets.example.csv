@@ -1,0 +1,35 @@
+object,kind,const,mag,hours,cont,window,altmax,az,peak,moonsep,moon,frame,detail
+IC1396 Elephant Trunk,Nebula,Cep,,5.2,5.2,22:41-03:46,74,360,03:01,119,ok(NB),mosaic 2x3,the Trunk vdB142 (western edge of IC1396) (~25x15')
+Sh2-155 Cave,Nebula,Cep,,5.2,5.2,22:41-03:46,68,11,03:46,118,ok(NB),1 frame,
+NGC7380 Wizard,Nebula,Cep,,5.2,5.2,22:41-03:46,73,10,03:46,122,ok(NB),1 frame,
+Sh2-171 NGC7822,Nebula,Cep,,5.2,5.2,22:41-03:46,61,20,03:46,113,ok(NB),1 frame,
+NGC7635 Bubble,Nebula,Cas,,5.2,5.2,22:41-03:46,69,19,03:46,119,ok(NB),1 frame,
+IC1805 Heart,Nebula,Cas,,5.2,5.2,22:41-03:46,49,40,03:46,111,ok(NB),mosaic 2x3,"Melotte 15, the central core (or 'Fish Head' NGC896) (~25x20')"
+IC1848 Soul,Nebula,Cas,,5.2,5.2,22:41-03:46,46,41,03:46,109,ok(NB),mosaic 2x2,the central cluster/embryo (CR34) (~30x25')
+NGC281 Pacman,Nebula,Cas,,5.2,5.2,22:41-03:46,62,45,03:46,122,ok(NB),1 frame,
+Sh2-132 Lion,Nebula,Cep,,5.2,5.2,22:41-03:46,76,360,03:41,123,ok(NB),1 frame,
+IC59/63 Ghost of Cas,Nebula,Cas,,5.2,5.2,22:41-03:46,60,37,03:46,118,ok(NB),1 frame,
+NGC0224,Galaxy,And,3.4,5.2,5.2,22:41-03:46,64,79,03:46,137,low,mosaic 3x2,"core + dust lanes, or the NGC206 star cloud (~60x40')"
+NGC0221,Galaxy,And,8.1,5.2,5.2,22:41-03:46,64,80,03:46,137,low,1 frame,
+NGC7654,Open Cluster,Cas,6.9,5.2,5.2,22:41-03:46,68,19,03:46,119,low,1 frame,
+NGC0650,Planetary Nebula,Per,10.1,5.2,5.2,22:41-03:46,55,56,03:46,123,low,1 frame,
+NGC0581,Open Cluster,Cas,7.4,5.2,5.2,22:41-03:46,56,40,03:46,116,low,1 frame,
+NGC0205,Galaxy,And,8.2,5.2,5.2,22:41-03:46,65,78,03:46,137,low,1 frame,
+IC5146 Cocoon,Nebula,Cyg,,4.8,4.8,22:41-03:26,84,359,03:16,128,ok(NB),1 frame,
+NGC7092,Open Cluster,Cyg,4.6,4.5,4.5,22:41-03:06,83,357,02:56,125,low,1 frame,
+NGC3034,Galaxy,UMa,8.3,4.4,4.4,23:26-03:46,29,340,23:26,73,none,1 frame,
+NGC3031,Galaxy,UMa,6.9,4.3,4.3,23:31-03:46,28,340,23:31,72,none,1 frame,
+NGC0598,Galaxy,Tri,5.8,4.2,4.2,23:36-03:46,51,90,03:46,139,none,1 frame,
+NGC1039,Open Cluster,Per,5.2,4.2,4.2,23:36-03:46,43,66,03:46,121,none,1 frame,
+NGC7000 North America,Nebula,Cyg,,3.8,3.8,22:41-02:26,87,0,02:21,124,ok(NB),mosaic 2x2,the 'Cygnus Wall' / Mexico border (most detailed edge) (~45x30')
+IC5070 Pelican,Nebula,Cyg,,3.7,3.7,22:41-02:16,87,6,02:11,123,ok(NB),1 frame,
+NGC0628,Galaxy,Psc,9.3,3.2,3.2,00:41-03:46,41,107,03:46,148,none,1 frame,
+IC1318 Sadr/Gamma Cyg,Nebula,Cyg,,2.8,2.8,22:41-01:26,86,111,01:26,121,ok(NB),mosaic 2x3,the region around Sadr (crop of the core) (~90x60'->crop)
+NGC6913,Open Cluster,Cyg,6.6,2.5,2.5,22:41-01:06,82,109,01:06,122,low,1 frame,
+NGC6888 Crescent,Nebula,Cyg,,2.3,2.3,22:41-00:56,82,111,00:56,120,ok(NB),1 frame,
+NGC6992 Veil-East,Nebula,Cyg,,2.2,2.2,22:41-00:46,69,111,00:46,131,ok(NB),1 frame,
+NGC1499 California,Nebula,Per,,2.2,2.2,01:36-03:46,27,64,03:46,111,none,mosaic 2x1,the 'head' near xi Persei (dense filament) (~50x40')
+NGC6960 Veil-West,Nebula,Cyg,,1.9,1.9,22:41-00:31,68,112,00:31,129,ok(NB),1 frame,
+Sh2-101 Tulip,Nebula,Cyg,,1.7,1.7,22:41-00:16,76,111,00:16,119,ok(NB),1 frame,
+Mel022,Open Cluster,Tau,1.2,1.5,1.5,02:21-03:46,22,77,03:46,117,none,mosaic 2x3,the central Pleiades (Alcyone/Merope) with IC349 (~40x30')
+NGC7078,Globular Cluster,Peg,6.3,1.1,1.1,22:41-23:41,39,111,23:41,146,low,1 frame,
