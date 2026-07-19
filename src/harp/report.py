@@ -107,7 +107,9 @@ def print_notes(plan: NightPlan, top: int) -> None:
             print(f"  - {r.name:<22} ({r.frame}) -> {r.detail}")
 
 
-def write_csv(plan: NightPlan, path: str | Path, link_site: str = "simbad") -> None:
+def write_csv(
+    plan: NightPlan, path: str | Path, link_site: str = "simbad", quiet: bool = False
+) -> None:
     """Write all ranked rows to a CSV file (historical column layout).
 
     Parameters
@@ -128,10 +130,11 @@ def write_csv(plan: NightPlan, path: str | Path, link_site: str = "simbad") -> N
         writer.writeheader()
         for r in plan.rows:
             writer.writerow(_row_record(r, link=target_link(plan.targets[r.index], link_site)))
-    print(f"\nCandidates: {len(plan.rows)} -> {path}")
+    if not quiet:
+        print(f"\nCandidates: {len(plan.rows)} -> {path}")
 
 
-def plot_charts(plan: NightPlan, path: str | Path, n_plot: int = 12) -> None:
+def plot_charts(plan: NightPlan, path: str | Path, n_plot: int = 12, quiet: bool = False) -> None:
     """Chart the best targets: altitude, Moon, obstruction, usable window."""
     if not plan.rows:
         return
@@ -176,4 +179,5 @@ def plot_charts(plan: NightPlan, path: str | Path, n_plot: int = 12) -> None:
     fig.tight_layout()
     fig.savefig(path, dpi=130, bbox_inches="tight")
     plt.close(fig)
-    print(f"Chart saved: {path}")
+    if not quiet:
+        print(f"Chart saved: {path}")

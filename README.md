@@ -114,6 +114,19 @@ Sites (position + `.hrz` + timezone) and optical setups (focal + sensor) live in
 Precedence: **CLI option > config value > built-in default**. Details in the
 [usage guide](https://szaghi.github.io/harp/guide/usage).
 
+## Android app (experimental)
+
+An Android frontend lives in [`android/`](android/): the same Python core,
+embedded on-device via Chaquopy, plus a **horizon wizard** that measures your
+skyline with the phone's sensors — true-north azimuths computed on-device
+(built-in World Magnetic Model, no manual declination), tap-to-record
+vertices, `.hrz` export. CI builds a debug APK on every push; see
+[`android/README.md`](android/README.md).
+
+Scripting/frontend note: `harp plan --json`, `harp info --json`, and
+`harp mosaic --json` emit machine-readable output over the stable
+`harp.api` surface.
+
 ## Development
 
 ```bash

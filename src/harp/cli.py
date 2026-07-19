@@ -148,6 +148,12 @@ def plan(
         help="Also export the ranked targets as a N.I.N.A.-importable CSV "
         "(Sequencer > import targets). Exports the same rows shown on screen.",
     ),
+    json_out: bool = typer.Option(
+        False,
+        "--json",
+        help="Emit the plan as JSON on stdout (with chart curves) instead of the "
+        "table; files are written only for explicitly given --csv/--png/--nina.",
+    ),
 ) -> None:
     """Recommend deep-sky targets for one night from your observing site.
 
@@ -227,6 +233,22 @@ def plan(
         raise _fail(e) from None
 
     top_n = pick(top, "top", cfg, DEFAULTS.top)
+    if json_out:
+        import json
+
+        from harp.api import plan_to_dict
+
+        if csv:
+            write_csv(the_plan, csv, link_site=link_provider, quiet=True)
+        if nina:
+            from harp.nina import write_targets_csv
+
+            write_targets_csv(the_plan, nina, top=top_n)
+        if png and not no_plot:
+            plot_charts(the_plan, png, n_plot=DEFAULTS.n_plot, quiet=True)
+        print(json.dumps(plan_to_dict(the_plan, top=top_n, curves=True, link_site=link_provider)))
+        return
+
     print_report(the_plan, top=top_n)
     write_csv(the_plan, csv or DEFAULTS.csv_file, link_site=link_provider)
     print_notes(the_plan, top=top_n)
@@ -261,6 +283,7 @@ def mosaic(
         help="Write the panels as a N.I.N.A.-importable mosaic CSV "
         "(one sequencer target per panel, camera rotation = PA).",
     ),
+    json_out: bool = typer.Option(False, "--json", help="Emit the panel list as JSON."),
 ) -> None:
     """Compute per-panel sky coordinates for a mosaic of TARGET with your rig."""
     import astropy.units as u
@@ -282,6 +305,19 @@ def mosaic(
         if dims is None:
             raise _fail(ValueError(f"{t.name}: no size in catalog, cannot plan a mosaic"))
         nx, ny = dims
+
+        if json_out:
+            import json
+
+            from harp.api import panels_to_dict
+
+            panels = mosaic_panels(t.coord, nx, ny, rig, pa_deg=pa)
+            if nina:
+                from harp.nina import write_mosaic_csv
+
+                write_mosaic_csv(t.name, panels, pa, nina)
+            print(json.dumps(panels_to_dict(t.name, panels, rig, pa)))
+            return
 
         size = f"{t.maj_arcmin:.0f}' x {t.min_arcmin or t.maj_arcmin:.0f}'"
         print(f"Target: {t.name}  ({size})")
@@ -335,6 +371,7 @@ def info(
     sensor: str | None = typer.Option(None, help="A sensor preset or 'WxH' in mm."),
     catalogs: str | None = typer.Option(None, help="pyongc catalogs to search (default: M)."),
     targets: str | None = typer.Option(None, help="User-defined targets file to search too."),
+    json_out: bool = typer.Option(False, "--json", help="Emit the details as JSON."),
 ) -> None:
     """Show what HARP knows about TARGET, plus informative web links."""
     import astropy.units as u
@@ -351,6 +388,14 @@ def info(
             targets_file=pick(targets, "targets", cfg, None),
         )
         t = _find_one_target(target, all_targets)
+
+        if json_out:
+            import json
+
+            from harp.api import info_to_dict
+
+            print(json.dumps(info_to_dict(t, rig)))
+            return
 
         ra = t.coord.ra.to_string(unit=u.hourangle, sep="hms", precision=0, pad=True)
         dec = t.coord.dec.to_string(sep="dms", precision=0, alwayssign=True, pad=True)
