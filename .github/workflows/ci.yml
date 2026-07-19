@@ -40,6 +40,12 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
+    # Pages accepts one deployment at a time: serialize, never overlap.
+    # Queued (not cancelled) so every push still ends up deployed.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+
     permissions:
       contents: read
       pages: write

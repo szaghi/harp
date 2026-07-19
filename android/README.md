@@ -20,8 +20,14 @@ consumes `../../src` directly, so it can never drift from the CLI.
   from the rotation-vector sensor, WMM declination applied automatically
   from the GPS fix (no NOAA lookup, ever), compass-calibration status,
   tap-to-record vertices, polar preview, `.hrz` export via the share sheet.
-- Phase 2b (camera AR overlay) and phase 3 (planner UI over `harp.api`)
-  are not started.
+- **Phase 2b — camera reticle** (0.1.5, field-validated): live rear-camera
+  aiming surface with an AR graticule (5-deg az/alt lines from the true
+  lens FOV, roll-compensated, red horizon line), tap-anywhere capture,
+  optional false-color contrast mode.
+- **Phase 3 — planner tab** (0.2.0): `harp plan` on-device over
+  `harp.api` — GPS site, the wizard's captured horizon picked up
+  automatically, desirability-ranked rows, tap a target for its SIMBAD
+  page. Default catalog Messier+curated; NGC/IC behind a "deep" switch.
 
 ## Building — two paths
 

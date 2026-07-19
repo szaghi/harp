@@ -13,8 +13,8 @@ android {
         applicationId = "org.szaghi.harp"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "0.1.5"
+        versionCode = 7
+        versionName = "0.2.0"
         ndk {
             // phones only; add "x86_64" to also run on the emulator
             abiFilters += listOf("arm64-v8a")

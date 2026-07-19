@@ -29,7 +29,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun HarpApp() {
     var tab by remember { mutableIntStateOf(0) }
-    val titles = listOf("Spike", "Horizon wizard")
+    val titles = listOf("Plan", "Horizon", "Spike")
     Scaffold { padding ->
         Column(Modifier.padding(padding)) {
             TabRow(selectedTabIndex = tab) {
@@ -38,8 +38,9 @@ fun HarpApp() {
                 }
             }
             when (tab) {
-                0 -> SpikeScreen()
+                0 -> PlanScreen(viewModel<PlanViewModel>())
                 1 -> HorizonScreen(viewModel<HorizonViewModel>())
+                2 -> SpikeScreen()
             }
         }
     }
