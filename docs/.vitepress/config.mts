@@ -18,6 +18,7 @@ export default withMermaid({
           { text: 'About',        link: '/guide/' },
           { text: 'Installation', link: '/guide/installation' },
           { text: 'Usage',        link: '/guide/usage' },
+          { text: 'Android app',  link: '/guide/android' },
         ],
       },
       {
@@ -35,6 +36,7 @@ export default withMermaid({
             { text: 'About',        link: '/guide/' },
             { text: 'Installation', link: '/guide/installation' },
             { text: 'Usage',        link: '/guide/usage' },
+            { text: 'Android app',  link: '/guide/android' },
           ],
         },
         {

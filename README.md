@@ -120,7 +120,13 @@ An Android frontend lives in [`android/`](android/): the same Python core,
 embedded on-device via Chaquopy, plus a **horizon wizard** that measures your
 skyline with the phone's sensors — true-north azimuths computed on-device
 (built-in World Magnetic Model, no manual declination), tap-to-record
-vertices, `.hrz` export. CI builds a debug APK on every push; see
+vertices, `.hrz` export.
+
+Two ways to get an APK: **CI** (every push builds the `harp-debug-apk`
+artifact in the Android workflow — zero local setup) or a **local build**
+for the fast bugfix loop (`gradle -p android :app:assembleDebug`, headless
+toolchain, no Android Studio). Setup commands, phone transfer (HTTP or
+wireless adb), and the device test checklist:
 [`android/README.md`](android/README.md).
 
 Scripting/frontend note: `harp plan --json`, `harp info --json`, and

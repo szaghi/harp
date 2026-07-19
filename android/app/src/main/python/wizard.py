@@ -9,8 +9,12 @@ from __future__ import annotations
 import json
 
 
-def make_hrz(points: list, blocked_alt: float = 90.0) -> str:
-    """Build a .hrz from ``[[true_az, alt], ...]``; returns JSON for Kotlin.
+def make_hrz(points_json: str, blocked_alt: float = 90.0) -> str:
+    """Build a .hrz from a JSON ``[[true_az, alt], ...]``; returns JSON.
+
+    The vertex list crosses the Kotlin/Python bridge as a JSON string:
+    passing Java collections directly hands Python opaque proxies that
+    tuple unpacking cannot digest.
 
     Returns
     -------
@@ -19,6 +23,7 @@ def make_hrz(points: list, blocked_alt: float = 90.0) -> str:
     """
     from harp.horizon import build_profile, validate_profile
 
+    points = json.loads(points_json)
     vertices = [(float(az), float(alt)) for az, alt in points]
     profile = build_profile(vertices, declination=0.0, blocked_alt=blocked_alt)
     problems = validate_profile(profile)

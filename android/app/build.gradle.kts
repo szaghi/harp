@@ -13,8 +13,8 @@ android {
         applicationId = "org.szaghi.harp"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 6
+        versionName = "0.1.5"
         ndk {
             // phones only; add "x86_64" to also run on the emulator
             abiFilters += listOf("arm64-v8a")
@@ -34,12 +34,24 @@ chaquopy {
         // 3.12 matches the system python3 of both Ubuntu 24.04 CI runners and
         // Stefano's WSL, so buildPython resolves without extra setup.
         version = "3.12"
+        // astropy's unit parser (PLY) generates generic_parsetab.py inside its
+        // own package dir at first use; Chaquopy's default read-only asset
+        // loading makes that fail ("'m / (s)' did not parse as unit ... No
+        // such file"). Extracting astropy to a real writable directory lets
+        // PLY generate its tables on first import.
+        extractPackages("astropy")
         pip {
             // THE PHASE-1 SPIKE: whether astropy/pyerfa resolve from Chaquopy's
             // Android wheel repository is exactly what this build proves.
             install("numpy")
             install("astropy")
-            install("astroplan")
+            // LOCAL WHEEL REQUIRED: Chaquopy's index shadows PyPI for names it
+            // carries, and its astroplan is a stale <=0.7 that imports the
+            // private _get_download_cache_locs removed in astropy 5. PyPI has
+            // no astroplan wheel (sdist only), so we commit the pure-Python
+            // wheel (built with `pip wheel astroplan==0.10.1 --no-deps`) and
+            // install it by path — deterministic, no index games.
+            install("wheels/astroplan-0.10.1-py3-none-any.whl")
             install("pyongc")
             install("pyyaml")
             install("tzdata")   // zoneinfo database (Android has no system tzdata for Python)
@@ -61,4 +73,9 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+    // camera reticle (phase 2b)
+    implementation("androidx.camera:camera-core:1.4.1")
+    implementation("androidx.camera:camera-camera2:1.4.1")
+    implementation("androidx.camera:camera-lifecycle:1.4.1")
+    implementation("androidx.camera:camera-view:1.4.1")
 }
