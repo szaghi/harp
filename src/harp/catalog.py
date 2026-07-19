@@ -24,6 +24,31 @@ __all__ = ["PYONGC_CATALOGS", "Target", "build_targets", "suggest_detail", "user
 # Catalogs pyongc can enumerate offline.
 PYONGC_CATALOGS = ("M", "NGC", "IC")
 
+# OpenNGC types whose objects are emission-line sources: narrowband filters
+# reject moonlit continuum for these, so the Moon-impact verdict is relaxed.
+# Generic "Nebula" is deliberately absent: it mixes emission and reflection
+# members (e.g. Merope), and a flag that RELAXES a warning must only be set
+# when the type guarantees emission lines.
+_NARROWBAND_TYPES = frozenset(
+    {
+        "Planetary Nebula",
+        "Supernova remnant",
+        "HII Ionized region",
+        "Emission Nebula",
+        "Star cluster + Nebula",
+    }
+)
+
+# OpenNGC types that are not imaging targets for a deep-sky planner.
+_EXCLUDED_TYPES = frozenset(
+    {
+        "Duplicated record",
+        "Nonexistent object",
+        "Star",
+        "Double star",
+    }
+)
+
 
 @dataclass(frozen=True)
 class Target:
@@ -173,6 +198,11 @@ def curated_nebulae() -> list[Target]:
 def pyongc_targets(catalogs: list[str], mag_limit: float) -> list[Target]:
     """Load objects from the offline pyongc catalogue, filtered by magnitude.
 
+    Non-target types (duplicated/nonexistent records, single/double stars)
+    are excluded. The narrowband flag is derived from the object type:
+    emission-line sources (planetaries, supernova remnants, HII regions)
+    get a relaxed Moon-impact verdict; everything else stays broadband.
+
     Parameters
     ----------
     catalogs : list of str
@@ -209,6 +239,8 @@ def pyongc_targets(catalogs: list[str], mag_limit: float) -> list[Target]:
     out: list[Target] = []
     for cat in catalogs:
         for obj in ongc.listObjects(catalog=cat):
+            if obj.type in _EXCLUDED_TYPES:
+                continue
             mv = vis_mag(obj.magnitudes)
             if mv is None or mv > mag_limit:
                 continue
@@ -230,7 +262,7 @@ def pyongc_targets(catalogs: list[str], mag_limit: float) -> list[Target]:
                         mag=round(mv, 1),
                         maj_arcmin=dims[0],
                         min_arcmin=dims[1],
-                        narrowband=False,
+                        narrowband=obj.type in _NARROWBAND_TYPES,
                         coord=coord_of(obj),
                         idents=frozenset(_norm_ident(i) for i in idents),
                     )

@@ -89,6 +89,29 @@ def test_pyongc_unknown_catalog() -> None:
         pyongc_targets(["SHARPLESS"], 11.0)
 
 
+def test_pyongc_narrowband_derived_from_type() -> None:
+    by_ident = {i: t for t in pyongc_targets(["M"], 11.0) for i in t.idents}
+    assert by_ident["M1"].narrowband  # supernova remnant (Crab)
+    assert by_ident["M57"].narrowband  # planetary nebula (Ring)
+    assert not by_ident["M78"].narrowband  # reflection nebula
+    assert not by_ident["M31"].narrowband  # galaxy
+    assert not by_ident["M45"].narrowband  # open cluster (Pleiades)
+
+
+def test_pyongc_excludes_non_targets() -> None:
+    by_ident = {i: t for t in pyongc_targets(["M"], 11.0) for i in t.idents}
+    assert "M40" not in by_ident  # double star: not an imaging target
+
+
+def test_pyongc_generic_nebula_stays_broadband() -> None:
+    """Generic 'Nebula' mixes emission and reflection members (Running Man,
+    Merope): the warning-relaxing flag must NOT be set for them."""
+    ngc = pyongc_targets(["NGC"], 11.0)
+    running_man = next(t for t in ngc if "NGC1973" in t.idents)
+    assert running_man.kind == "Nebula"
+    assert not running_man.narrowband
+
+
 def test_user_targets_load_and_defaults(tmp_path: Path) -> None:
     f = tmp_path / "my.yaml"
     f.write_text(

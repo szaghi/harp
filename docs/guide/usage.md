@@ -70,7 +70,10 @@ fallback — close neighbours like M43 stay distinct.
 - **altMx / az** — peak altitude and the azimuth at that moment.
 - **moonSep** — minimum Moon separation during the usable window.
 - **Moon** — impact: `none` (Moon down), `ok(NB)` (negligible in narrowband),
-  `low`/`med`/`high` (broadband impact from phase + separation).
+  `low`/`med`/`high` (broadband impact from phase + separation). For catalog
+  objects, narrowband is derived from the type: planetaries, supernova
+  remnants, and HII regions get the relaxed verdict; galaxies, clusters, and
+  reflection nebulae keep the broadband penalty.
 - **frame** — `1 frame` or `mosaic NxM` for your rig (15% overlap).
 - **detail** — for mosaic targets, an interesting crop that fits one frame.
 
