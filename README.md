@@ -11,7 +11,7 @@
 > targets you can actually image tonight — usable windows, Moon impact, and mosaic
 > framing tailored to your rig.
 
-[![Version](https://img.shields.io/pypi/v/harp?label=version)](https://pypi.org/project/harp/)
+[![Version](https://img.shields.io/pypi/v/harp-astro?label=version)](https://pypi.org/project/harp-astro/)
 [![CI](https://github.com/szaghi/harp/actions/workflows/ci.yml/badge.svg)](https://github.com/szaghi/harp/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
 [![GitHub issues](https://img.shields.io/github/issues/szaghi/harp.svg)](https://github.com/szaghi/harp/issues)
@@ -92,8 +92,12 @@ horizon.
 ## Installation
 
 ```bash
-pip install harp
+pip install harp-astro
 ```
+
+The distribution is `harp-astro` (the bare PyPI name is squatted by an empty
+project; a PEP 541 request is pending) — the installed package and the CLI
+command are plain `harp`.
 
 From source:
 

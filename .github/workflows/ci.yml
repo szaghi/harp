@@ -91,7 +91,7 @@ jobs:
 
     environment:
       name: pypi
-      url: https://pypi.org/project/harp/
+      url: https://pypi.org/project/harp-astro/
 
     steps:
       - uses: actions/checkout@v4

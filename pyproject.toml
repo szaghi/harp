@@ -3,7 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "harp"
+# Distribution name: the bare "harp" is squatted on PyPI by an empty project
+# (PEP 541 request pending); import package and CLI command remain "harp".
+name = "harp-astro"
 version = "0.1.0"
 description = "HARP - Horizon-Aware Recommender and Planner for deep-sky astrophotography sessions"
 readme = "README.md"
