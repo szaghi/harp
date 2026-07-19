@@ -22,6 +22,45 @@ harp plan 2026-08-15 \
 default. Without a `.hrz` (neither CLI nor config), a flat 0-degree horizon
 is assumed.
 
+## Choosing the catalogs
+
+```bash
+harp plan --catalogs M              # Messier only (default)
+harp plan --catalogs M,NGC,IC       # full OpenNGC, filtered by --mag-limit
+harp plan --catalogs NGC --mag-limit 10
+```
+
+The offline OpenNGC database holds ~14k NGC/IC objects; `--mag-limit`
+(default 11.0) applies to these, never to the curated nebulae. The config
+key `catalogs` (string or list) sets a default.
+
+## Your own targets
+
+```bash
+harp plan --targets my_targets.yaml
+```
+
+A user targets file merges **with priority over the built-in catalogues** —
+an entry sharing a designation (M/NGC/IC/Sh2) with a known object replaces
+it, so it also serves to override coordinates or sizes. Config key:
+`targets` (path, resolved relative to the config file).
+
+```yaml
+targets:
+  - name: "Sh2-240 Spaghetti West"   # designations in the name are used
+    ra:   "05h37m00s"                #   for cross-source deduplication
+    dec:  "+27d40m00s"               # sexagesimal or decimal degrees
+    maj:  100                        # arcmin (optional, enables framing)
+    min:  80
+    const: Tau                       # optional
+    kind: SNR                        # optional
+    narrowband: true                 # optional: relaxes Moon impact
+```
+
+Duplicates across sources are detected by shared catalog designation
+(OpenNGC cross-ids: M42 == NGC1976), with a tight 2-arcmin positional
+fallback — close neighbours like M43 stay distinct.
+
 ## Reading the output
 
 - **hrs** — total hours above your horizon during astronomical darkness.

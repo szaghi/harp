@@ -1,0 +1,29 @@
+# User-defined targets for `harp plan --targets my_targets.yaml`
+# (or via the config key `targets: my_targets.yaml`).
+#
+# These merge WITH PRIORITY over the built-in catalogues: an entry sharing a
+# designation (M/NGC/IC/Sh2) with a built-in object replaces it, so you can
+# also override coordinates/size/framing of known targets.
+#
+# ra/dec: sexagesimal strings or decimal degrees.
+# narrowband: true relaxes the Moon-impact verdict (Halpha + dual-band filter);
+# leave false for broadband targets.
+
+targets:
+  - name: "Sh2-240 Spaghetti West"   # Simeis 147 western filament
+    ra:   "05h37m00s"
+    dec:  "+27d40m00s"
+    maj:  100
+    min:  80
+    const: Tau
+    kind: SNR
+    narrowband: true
+
+  - name: "Barnard 150 Seahorse"     # dark nebula, no designation overlap
+    ra:   "20h50m42s"
+    dec:  "+60d18m00s"
+    maj:  60
+    min:  10
+    const: Cep
+    kind: Dark Nebula
+    narrowband: false

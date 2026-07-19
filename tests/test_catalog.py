@@ -2,9 +2,22 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
 from astropy.coordinates import SkyCoord
 
-from harp.catalog import Target, curated_nebulae, dedup, suggest_detail
+from harp.catalog import (
+    Target,
+    _extract_idents,
+    build_targets,
+    curated_nebulae,
+    dedup,
+    pyongc_targets,
+    suggest_detail,
+    user_targets,
+)
+from harp.errors import CatalogError
 
 
 def test_curated_nebulae_well_formed() -> None:
@@ -42,3 +55,85 @@ def test_dedup_drops_close_duplicates_first_wins() -> None:
     c = _target("far", "10h00m00s", "+10d00m00s")
     kept = dedup([a, b, c])
     assert [t.name for t in kept] == ["first", "far"]
+
+
+def test_extract_idents() -> None:
+    assert _extract_idents("M42 Orion") == {"M42"}
+    assert _extract_idents("IC59/63 Ghost of Cas") == {"IC59", "IC63"}
+    assert _extract_idents("Sh2-171 NGC7822") == {"SH2-171", "NGC7822"}
+    assert _extract_idents("Simeis147 Spaghetti") == {"SIMEIS147"}
+    # slash between words (not digits) must not create ghost designations
+    assert _extract_idents("NGC2264 Cone/Xmas") == {"NGC2264"}
+    # zero-padding is normalized away
+    assert _extract_idents("NGC0224 Andromeda") == {"NGC224"}
+
+
+def test_dedup_by_cross_identity_and_m43_survives() -> None:
+    """Regression: curated M42 must eat pyongc NGC1976 (cross-id M042) but
+    NOT NGC1982 = M43, a distinct target 8 arcmin away."""
+    merged = dedup(curated_nebulae() + pyongc_targets(["M"], 11.0))
+    names = {t.name for t in merged}
+    assert "NGC1976" not in names  # M42 duplicate: eaten via cross-id
+    assert "NGC1982" in names  # M43: distinct target, must survive
+    assert "M42 Orion" in names  # curated entry wins
+
+
+def test_dedup_neighbors_beyond_radius_survive() -> None:
+    a = _target("one", "05h35m00s", "+00d00m00s")
+    b = _target("two", "05h35m32s", "+00d00m00s")  # ~8' away in RA
+    assert len(dedup([a, b])) == 2
+
+
+def test_pyongc_unknown_catalog() -> None:
+    with pytest.raises(CatalogError, match="unknown catalog"):
+        pyongc_targets(["SHARPLESS"], 11.0)
+
+
+def test_user_targets_load_and_defaults(tmp_path: Path) -> None:
+    f = tmp_path / "my.yaml"
+    f.write_text(
+        "targets:\n"
+        "  - name: 'Sh2-240 Spaghetti West'\n"
+        "    ra: '05h32m00s'\n"
+        "    dec: '+27d00m00s'\n"
+        "    maj: 100\n"
+        "    narrowband: true\n"
+        "  - name: 'Decimal Object'\n"
+        "    ra: 83.0\n"
+        "    dec: -5.4\n"
+    )
+    ts = user_targets(f)
+    assert ts[0].idents == {"SH2-240"}
+    assert ts[0].narrowband
+    assert ts[0].min_arcmin is None
+    assert ts[1].kind == "Custom"
+    assert ts[1].coord.ra.deg == pytest.approx(83.0)
+
+
+def test_user_targets_errors(tmp_path: Path) -> None:
+    with pytest.raises(CatalogError, match="not found"):
+        user_targets(tmp_path / "missing.yaml")
+    bad = tmp_path / "bad.yaml"
+    bad.write_text("targets:\n  - name: 'No coords'\n")
+    with pytest.raises(CatalogError, match="bad entry #1"):
+        user_targets(bad)
+    empty = tmp_path / "empty.yaml"
+    empty.write_text("something_else: 1\n")
+    with pytest.raises(CatalogError, match="no 'targets' list"):
+        user_targets(empty)
+
+
+def test_build_targets_user_priority(tmp_path: Path) -> None:
+    """A user-defined M42 must displace both the curated and pyongc entries."""
+    f = tmp_path / "my.yaml"
+    f.write_text(
+        "targets:\n"
+        "  - name: 'M42 my framing'\n"
+        "    ra: '05h35m17s'\n"
+        "    dec: '-05d23m00s'\n"
+        "    maj: 60\n"
+    )
+    merged = build_targets(targets_file=f)
+    m42 = [t for t in merged if "M42" in t.idents]
+    assert len(m42) == 1
+    assert m42[0].name == "M42 my framing"

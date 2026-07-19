@@ -9,7 +9,9 @@ the targets this planner is for.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+import re
+from dataclasses import dataclass, field
+from pathlib import Path
 
 from astropy.coordinates import SkyCoord
 
@@ -17,7 +19,10 @@ from harp.errors import CatalogError
 
 log = logging.getLogger(__name__)
 
-__all__ = ["Target", "build_targets", "suggest_detail"]
+__all__ = ["PYONGC_CATALOGS", "Target", "build_targets", "suggest_detail", "user_targets"]
+
+# Catalogs pyongc can enumerate offline.
+PYONGC_CATALOGS = ("M", "NGC", "IC")
 
 
 @dataclass(frozen=True)
@@ -40,6 +45,9 @@ class Target:
         True for Halpha emission nebulae that image well in narrowband.
     coord : astropy.coordinates.SkyCoord
         ICRS coordinates.
+    idents : frozenset of str
+        Normalized catalog designations (M42, NGC1976, SH2-101, ...) used
+        for identity-based deduplication across sources.
     """
 
     name: str
@@ -50,6 +58,36 @@ class Target:
     min_arcmin: float | None
     narrowband: bool
     coord: SkyCoord
+    idents: frozenset[str] = field(default_factory=frozenset)
+
+
+def _norm_ident(raw: str) -> str:
+    """Normalize a designation: upper-case, no spaces, no zero-padding."""
+    s = raw.strip().upper().replace(" ", "")
+    m = re.fullmatch(r"(.*?)(\d+)", s)
+    if m:
+        s = f"{m.group(1)}{int(m.group(2))}"
+    return s
+
+
+def _extract_idents(name: str) -> frozenset[str]:
+    """Extract catalog designations from a free-form target name.
+
+    Understands ``M``/``NGC``/``IC`` (with slash lists like ``IC59/63``),
+    ``Sh2-N`` and ``Simeis N`` tokens; nicknames are ignored.
+    """
+    idents: set[str] = set()
+    for m in re.finditer(r"\b(M|NGC|IC)(\d+)((?:/\d+)*)", name, flags=re.IGNORECASE):
+        prefix = m.group(1).upper()
+        idents.add(_norm_ident(f"{prefix}{m.group(2)}"))
+        for extra in m.group(3).split("/"):
+            if extra:
+                idents.add(_norm_ident(f"{prefix}{extra}"))
+    for m in re.finditer(r"\bSh2-(\d+)", name, flags=re.IGNORECASE):
+        idents.add(f"SH2-{int(m.group(1))}")
+    for m in re.finditer(r"\bSimeis\s*(\d+)", name, flags=re.IGNORECASE):
+        idents.add(f"SIMEIS{int(m.group(1))}")
+    return frozenset(idents)
 
 
 # Curated large-nebula catalogue (RA, Dec J2000, maj', min', const, Halpha?)
@@ -126,6 +164,7 @@ def curated_nebulae() -> list[Target]:
             min_arcmin=minr,
             narrowband=ha,
             coord=SkyCoord(ra, dec, frame="icrs"),
+            idents=_extract_idents(nm),
         )
         for nm, ra, dec, maj, minr, con, ha in _NEBULAE
     ]
@@ -144,12 +183,16 @@ def pyongc_targets(catalogs: list[str], mag_limit: float) -> list[Target]:
     Raises
     ------
     CatalogError
-        If pyongc is not installed.
+        If pyongc is not installed or a catalog name is unknown.
     """
     try:
         from pyongc import ongc
     except ImportError as e:
         raise CatalogError("pyongc is required for catalog objects (pip install pyongc)") from e
+
+    for cat in catalogs:
+        if cat not in PYONGC_CATALOGS:
+            raise CatalogError(f"unknown catalog {cat!r}: choose from {', '.join(PYONGC_CATALOGS)}")
 
     def vis_mag(mags: tuple) -> float | None:
         return mags[1] if mags[1] is not None else mags[0]
@@ -171,6 +214,14 @@ def pyongc_targets(catalogs: list[str], mag_limit: float) -> list[Target]:
                 continue
             dims = obj.dimensions or (None, None, None)
             try:
+                # identifiers = (messier, ngc, ic, common_names, other_idents)
+                messier, ngc, ic, _, others = obj.identifiers
+                idents = {obj.name}
+                for ref in (messier, ngc, ic, *(others or [])):
+                    if isinstance(ref, str):
+                        idents.add(ref)
+                    elif isinstance(ref, list | tuple):
+                        idents.update(ref)
                 out.append(
                     Target(
                         name=obj.name,
@@ -181,6 +232,7 @@ def pyongc_targets(catalogs: list[str], mag_limit: float) -> list[Target]:
                         min_arcmin=dims[1],
                         narrowband=False,
                         coord=coord_of(obj),
+                        idents=frozenset(_norm_ident(i) for i in idents),
                     )
                 )
             except Exception as e:  # malformed catalogue entry: skip, don't die
@@ -188,13 +240,95 @@ def pyongc_targets(catalogs: list[str], mag_limit: float) -> list[Target]:
     return out
 
 
-def dedup(targets: list[Target], sep_deg: float = 0.15) -> list[Target]:
-    """Drop targets closer than ``sep_deg`` to an earlier one (curated wins)."""
+def dedup(targets: list[Target], sep_deg: float = 2.0 / 60.0) -> list[Target]:
+    """Drop later targets that duplicate an earlier one; earlier source wins.
+
+    Two targets are the same object when they share a normalized catalog
+    designation (M42 == NGC1976 via OpenNGC cross-ids), or — fallback for
+    designation-less entries — when they lie within ``sep_deg`` degrees.
+    The fallback radius is deliberately tight (2 arcmin): distinct neighbors
+    such as M43, 8 arcmin from M42, must survive.
+    """
+    import numpy as np
+
+    # vectorized proximity test: pairwise astropy separation() calls are
+    # ~0.1 ms each, O(n^2) of them is minutes at full-NGC/IC scale
+    cos_thr = np.cos(np.radians(sep_deg))
     uniq: list[Target] = []
+    seen: set[str] = set()
+    kept_xyz = np.empty((0, 3))
     for t in targets:
-        if not any(t.coord.separation(v.coord).deg < sep_deg for v in uniq):
-            uniq.append(t)
+        if t.idents & seen:
+            continue
+        ra, dec = t.coord.ra.rad, t.coord.dec.rad
+        v = np.array([np.cos(dec) * np.cos(ra), np.cos(dec) * np.sin(ra), np.sin(dec)])
+        if kept_xyz.size and (kept_xyz @ v).max() > cos_thr:
+            continue
+        uniq.append(t)
+        seen |= t.idents
+        kept_xyz = np.vstack([kept_xyz, v])
     return uniq
+
+
+def user_targets(path: str | Path) -> list[Target]:
+    """Load user-defined targets from a YAML/JSON file.
+
+    Expected shape::
+
+        targets:
+          - name: "Sh2-240 Spaghetti"        # required
+            ra:   "05h39m00s"                # required (or decimal degrees)
+            dec:  "+28d00m00s"               # required (or decimal degrees)
+            maj:  180                        # arcmin, optional
+            min:  180                        # arcmin, optional
+            const: Tau                       # optional
+            kind: Nebula                     # optional, default 'Custom'
+            mag:  null                       # optional
+            narrowband: true                 # optional, default false
+
+    Raises
+    ------
+    CatalogError
+        If the file is missing, unparsable, or an entry lacks required keys.
+    """
+    from harp.config import load_config
+
+    path = Path(path)
+    if not path.exists():
+        raise CatalogError(f"targets file not found: {path}")
+    try:
+        data = load_config(path)
+    except Exception as e:
+        raise CatalogError(f"cannot parse targets file {path}: {e}") from e
+    entries = data.get("targets")
+    if not isinstance(entries, list) or not entries:
+        raise CatalogError(f"no 'targets' list in {path}")
+
+    out: list[Target] = []
+    for n, entry in enumerate(entries, 1):
+        try:
+            ra, dec = entry["ra"], entry["dec"]
+            coord = (
+                SkyCoord(ra=float(ra), dec=float(dec), unit="deg", frame="icrs")
+                if isinstance(ra, int | float)
+                else SkyCoord(ra, dec, frame="icrs")
+            )
+            out.append(
+                Target(
+                    name=entry["name"],
+                    kind=entry.get("kind", "Custom"),
+                    const=entry.get("const", ""),
+                    mag=entry.get("mag"),
+                    maj_arcmin=entry.get("maj"),
+                    min_arcmin=entry.get("min"),
+                    narrowband=bool(entry.get("narrowband", False)),
+                    coord=coord,
+                    idents=_extract_idents(str(entry["name"])),
+                )
+            )
+        except (KeyError, ValueError) as e:
+            raise CatalogError(f"bad entry #{n} in {path}: {e}") from e
+    return out
 
 
 def build_targets(
@@ -202,8 +336,11 @@ def build_targets(
     use_pyongc: bool = True,
     pyongc_catalogs: list[str] | None = None,
     mag_limit: float = 11.0,
+    targets_file: str | Path | None = None,
 ) -> list[Target]:
-    """Assemble the final target list: curated nebulae + pyongc, deduplicated.
+    """Assemble the final target list, deduplicated across sources.
+
+    Source priority for duplicates: user targets > curated nebulae > pyongc.
 
     Parameters
     ----------
@@ -212,11 +349,15 @@ def build_targets(
     use_pyongc : bool
         Include pyongc objects (offline Messier/NGC/IC).
     pyongc_catalogs : list of str or None
-        pyongc catalog names; defaults to ``['M']``.
+        pyongc catalog names among ``M``/``NGC``/``IC``; defaults to ``['M']``.
     mag_limit : float
         Magnitude limit applied to pyongc objects only.
+    targets_file : str, pathlib.Path or None
+        Optional user-defined targets file (see :func:`user_targets`).
     """
     items: list[Target] = []
+    if targets_file is not None:
+        items += user_targets(targets_file)
     if use_nebulae:
         items += curated_nebulae()
     if use_pyongc:

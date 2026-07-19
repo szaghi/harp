@@ -87,3 +87,52 @@ def test_plan_smoke(runner: CliRunner, tmp_path: Path) -> None:
     )
     # August night from the balcony: Cygnus/Cepheus nebulae must be in
     assert "IC1396 Elephant Trunk" in result.output
+
+
+def test_plan_with_user_targets(runner: CliRunner, tmp_path: Path) -> None:
+    f = tmp_path / "my.yaml"
+    f.write_text(
+        "targets:\n"
+        "  - name: 'My Cygnus Field'\n"
+        "    ra: '20h30m00s'\n"
+        "    dec: '+45d00m00s'\n"
+        "    maj: 30\n"
+        "    min: 20\n"
+        "    narrowband: true\n"
+    )
+    result = runner.invoke(
+        app,
+        [
+            "plan",
+            "2026-08-15",
+            "--config",
+            str(EXAMPLES / "sites.yaml"),
+            "--targets",
+            str(f),
+            "--no-pyongc",
+            "--no-plot",
+            "--csv",
+            str(tmp_path / "out.csv"),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "My Cygnus Field" in result.output
+
+
+def test_plan_bad_catalogs_fails(runner: CliRunner, tmp_path: Path) -> None:
+    result = runner.invoke(
+        app,
+        [
+            "plan",
+            "2026-08-15",
+            "--config",
+            str(EXAMPLES / "sites.yaml"),
+            "--catalogs",
+            "SHARPLESS",
+            "--no-plot",
+            "--csv",
+            str(tmp_path / "o.csv"),
+        ],
+    )
+    assert result.exit_code == 1
+    assert "unknown catalog" in result.output

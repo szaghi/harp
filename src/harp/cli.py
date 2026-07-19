@@ -71,6 +71,15 @@ def plan(
     label: str | None = typer.Option(None, help="Site label."),
     focal: float | None = typer.Option(None, help="Focal length (mm)."),
     sensor: str | None = typer.Option(None, help="A sensor preset or 'WxH' in mm, e.g. 23.5x15.7."),
+    catalogs: str | None = typer.Option(
+        None,
+        help="Comma-separated pyongc catalogs to include: M, NGC, IC (default: M).",
+    ),
+    targets: str | None = typer.Option(
+        None,
+        help="User-defined targets file (YAML/JSON with a 'targets' list), "
+        "merged with priority over the built-in catalogues.",
+    ),
     mag_limit: float | None = typer.Option(
         None, "--mag-limit", help="Magnitude limit for pyongc objects."
     ),
@@ -132,15 +141,31 @@ def plan(
                 hrz_path = cfg_path.parent / hrz_path
             horizon, horizon_label = Horizon.from_hrz(hrz_path), str(hrz_path)
 
-        targets = build_targets(
+        cat_val = pick(catalogs, "catalogs", cfg, "M")
+        cat_list = (
+            [c.strip().upper() for c in cat_val.split(",") if c.strip()]
+            if isinstance(cat_val, str)
+            else [str(c).upper() for c in cat_val]
+        )
+        targets_val = pick(targets, "targets", cfg, None)
+        targets_path = None
+        if targets_val is not None:
+            targets_path = Path(targets_val)
+            # config-relative resolution, same rule as the .hrz path
+            if targets is None and cfg_path and not targets_path.is_absolute():
+                targets_path = cfg_path.parent / targets_path
+
+        target_list = build_targets(
             use_pyongc=not no_pyongc,
+            pyongc_catalogs=cat_list,
             mag_limit=pick(mag_limit, "mag_limit", cfg, DEFAULTS.mag_limit),
+            targets_file=targets_path,
         )
         the_plan = plan_night(
             site=the_site,
             rig=rig,
             horizon=horizon,
-            targets=targets,
+            targets=target_list,
             date=date,
             grid_min=DEFAULTS.grid_min,
             min_moon_sep=pick(moon_sep, "moon_sep", cfg, DEFAULTS.min_moon_sep),
