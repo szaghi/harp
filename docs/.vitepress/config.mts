@@ -4,6 +4,11 @@ export default withMermaid({
   title: 'HARP',
   description: 'Horizon-Aware Recommender and Planner for deep-sky astrophotography',
   base: '/harp/',
+  // mermaid 11 ships es2022 syntax; vitepress's default browser target
+  // (chrome87/es2020) makes esbuild reject its chunks at build time
+  vite: {
+    build: { target: 'es2022' },
+  },
   themeConfig: {
     nav: [
       { text: 'Home', link: '/' },
