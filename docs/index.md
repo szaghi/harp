@@ -17,7 +17,13 @@ features:
   - title: Horizon-aware
     details: Uses your site's real free-horizon profile, not a flat 0-degree ideal.
   - title: Rig-informed
-    details: Matches targets to your telescope + camera field of view and sampling.
+    details: Matches targets to your telescope + camera field of view, down to per-panel mosaic coordinates.
   - title: Moon-savvy
-    details: Accounts for Moon phase and separation when ranking candidates.
+    details: Phase, separation, and narrowband-awareness folded into a per-target verdict.
+  - title: Ranked, not just listed
+    details: A 0-100 desirability score orders each night's candidates; one hopeless factor sinks a target.
+  - title: N.I.N.A.-integrated
+    details: Shares the .hrz horizon and exports ranked targets or mosaic panels straight into the sequencer.
+  - title: Offline and scriptable
+    details: Curated + Messier/NGC/IC catalogs on disk, your own targets file on top; CLI output built for scripts.
 ---

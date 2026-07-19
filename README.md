@@ -28,12 +28,16 @@
 <td><b>⏱️ Continuous imaging windows</b><br><sub>Per target: total usable hours during astronomical darkness plus the longest <em>continuous</em> run before it enters a blocked sector — the number you actually size exposures and mosaic panels on. <a href="https://szaghi.github.io/harp/guide/usage#reading-the-output">Reading the output</a></sub></td>
 </tr>
 <tr>
-<td><b>🌙 Moon impact model</b><br><sub>Phase and minimum separation folded into a per-target verdict — <code>none</code>, <code>ok(NB)</code>, <code>low/med/high</code> — narrowband-aware, because an Hα nebula through a dual-band filter shrugs at a Moon that ruins broadband RGB. </sub></td>
-<td><b>🖼️ Rig-aware framing</b><br><sub>Field of view from your focal length + sensor decides <code>1 frame</code> or <code>mosaic NxM</code> (15% overlap) — and for oversized nebulae HARP suggests the interesting single-frame crop (the Cygnus Wall, the Elephant's Trunk, Melotte 15…).</sub></td>
+<td><b>🏆 Desirability ranking</b><br><sub>Every target gets a 0-100 score: a weighted geometric mean of continuous window, total hours, peak altitude (inverse-airmass), Moon verdict, and how well the object fills your field of view — so one hopeless factor sinks a target instead of averaging away. <code>--sort hours</code> restores the classic order.</sub></td>
+<td><b>🌙 Moon impact model</b><br><sub>Phase and separation folded into a per-target verdict — <code>none</code>, <code>ok(NB)</code>, <code>low/med/high</code> — with narrowband auto-derived from the object type: planetaries, supernova remnants and HII regions shrug at a Moon that ruins broadband RGB.</sub></td>
 </tr>
 <tr>
-<td><b>🔭 Offline catalogues</b><br><sub>A curated list of large emission nebulae — deliberately <em>not</em> magnitude-filtered, because surface brightness matters and integrated magnitudes are often absent — plus Messier/NGC/IC via <a href="https://github.com/mattiaverga/PyOngc">pyongc</a>. No network at run time.</sub></td>
-<td><b>📈 Table, CSV, charts</b><br><sub>A ranked terminal table, a CSV for your session log, and altitude charts with the horizon obstruction band and the usable window overlaid — one command, three artifacts. </sub></td>
+<td><b>🖼️ Mosaic framing &amp; panel coordinates</b><br><sub>Your focal length + sensor decide <code>1 frame</code> or <code>mosaic NxM</code>; <code>harp mosaic</code> then emits the actual per-panel RA/Dec centers (overlap-aware, position-angle rotated, correct at any declination) — plus single-frame crop suggestions for the monsters. <a href="https://szaghi.github.io/harp/guide/usage#mosaic-panel-coordinates">Mosaic guide</a></sub></td>
+<td><b>🎯 N.I.N.A. integration</b><br><sub>The same <code>.hrz</code> horizon drives both tools, and <code>--nina</code> exports ranked targets or mosaic panels as CSVs N.I.N.A.'s sequencer imports directly — verified against N.I.N.A.'s actual parser source. Plan in HARP, shoot in N.I.N.A., retype nothing. <a href="https://szaghi.github.io/harp/guide/usage#nina-integration">N.I.N.A. guide</a></sub></td>
+</tr>
+<tr>
+<td><b>🔭 Offline catalogues + your own</b><br><sub>Curated large emission nebulae (deliberately <em>not</em> magnitude-filtered), full Messier/NGC/IC via <a href="https://github.com/mattiaverga/PyOngc">pyongc</a> (<code>--catalogs M,NGC,IC</code>), and a user targets file that overrides everything (<code>--targets</code>). Cross-identification dedup: M42 and NGC1976 are one object, M43 stays its own. No network at run time.</sub></td>
+<td><b>📈 Table, CSV, charts</b><br><sub>A ranked terminal table, a CSV for your session log, and altitude charts with the horizon obstruction band and the usable window overlaid — one command, all artifacts, all greppable and scriptable.</sub></td>
 </tr>
 </table>
 </div>
@@ -49,6 +53,9 @@
 ```bash
 harp plan                                    # tonight, default site/optics from config
 harp plan 2026-08-15 --site balcony --optics newton800
+harp plan --catalogs M,NGC,IC --targets my_targets.yaml   # full catalog + your objects
+harp plan --nina tonight.csv                 # export ranked targets for N.I.N.A.
+harp mosaic IC1396 --pa 30 --nina panels.csv # per-panel coords -> N.I.N.A. sequencer
 harp list                                    # sites and optics defined in the config
 harp horizon points.yaml -o balcony.hrz      # measured vertices -> .hrz horizon file
 ```
@@ -60,19 +67,20 @@ Moon: ~12% illuminated  |  above horizon: below horizon all night
 Setup: 800 mm + custom 23.5x15.7
 Field of view: 101' x 67'  |  horizon: balcony.hrz
 
- # object                kind       const   hrs cont       window altMx   az moonSep   Moon  frame
---------------------------------------------------------------------------------------------------
- 1 Sh2-171 NGC7822       Nebula     Cep     6.7  6.7  21:53-04:28    64    0     117   none  1 frame
- 2 IC1805 Heart          Nebula     Cas     6.7  6.7  21:53-04:28    65   28     116   none  mosaic 2x3
- 3 IC1848 Soul           Nebula     Cas     6.7  6.7  21:53-04:28    64   34     115   none  mosaic 2x2
- 4 NGC281 Pacman         Nebula     Cas     6.7  6.7  21:53-04:28    75    0     127   none  1 frame
- 5 IC59/63 Ghost of Cas  Nebula     Cas     6.7  6.7  21:53-04:28    71  360     122   none  1 frame
+ # object                 score kind      const   hrs cont       window altMx   az moonSep   Moon  frame
+--------------------------------------------------------------------------------------------------------
+ 1 NGC281 Pacman             99 Nebula    Cas     6.7  6.7  21:53-04:28    75    0     127   none  1 frame
+ 2 NGC7380 Wizard            99 Nebula    Cep     5.2  5.2  21:53-03:03    73    0     124   none  1 frame
+ 3 NGC1039                   99 Open Clus Per     6.7  6.7  21:53-04:28    71   78     128   none  1 frame
+ 4 IC59/63 Ghost of Cas      99 Nebula    Cas     6.7  6.7  21:53-04:28    71  360     122   none  1 frame
+ 5 Sh2-155 Cave              98 Nebula    Cep     5.8  5.8  21:53-03:38    69    0     121   none  1 frame
 ```
 
 ![Altitude charts](examples/altitude_charts.example.png)
 
-The typical flow: **measure the horizon once → generate the `.hrz` → load it in
-N.I.N.A. and in HARP** to plan every session from that spot. See
+The typical flow: **measure the horizon once → generate the `.hrz` → load it
+in N.I.N.A. and in HARP → plan the night → export the ranked targets (or the
+mosaic panels) straight into N.I.N.A.'s sequencer.** See
 [`examples/`](examples/) for a working config, horizon file, and sample outputs.
 
 ## The name

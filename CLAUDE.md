@@ -12,7 +12,9 @@ status.
   pyongc), `optics.py` (rig FOV/mosaic), `ephemeris.py` (darkness window,
   alt-az, Moon), `planner.py` (orchestration -> NightPlan), `report.py`
   (table/CSV/charts), `config.py` (CLI > config > defaults layering),
-  `cli.py` (Typer: plan/list/horizon)
+  `mosaic.py` (per-panel sky geometry), `nina.py` (N.I.N.A. CSV exports —
+  header choice works around NINA's dec-import bug, see module docstring),
+  `cli.py` (Typer: plan/mosaic/list/horizon)
 - `examples/` — working sites.yaml, balcony.hrz, horizon points file,
   sample outputs; tests assert against these (do not regenerate blindly)
 - `tests/` — pytest suite, shared fixtures in `conftest.py`

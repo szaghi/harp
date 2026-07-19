@@ -100,6 +100,11 @@ def plan(
     ),
     csv: str | None = typer.Option(None, help="Output CSV file."),
     png: str | None = typer.Option(None, help="Output PNG chart file."),
+    nina: str | None = typer.Option(
+        None,
+        help="Also export the ranked targets as a N.I.N.A.-importable CSV "
+        "(Sequencer > import targets). Exports the same rows shown on screen.",
+    ),
 ) -> None:
     """Recommend deep-sky targets for one night from your observing site.
 
@@ -187,6 +192,11 @@ def plan(
     print_report(the_plan, top=top_n)
     write_csv(the_plan, csv or DEFAULTS.csv_file)
     print_notes(the_plan, top=top_n)
+    if nina:
+        from harp.nina import write_targets_csv
+
+        n = write_targets_csv(the_plan, nina, top=top_n)
+        print(f"\nN.I.N.A. target list written: {nina} ({n} targets)")
     if not no_plot:
         plot_charts(the_plan, png or DEFAULTS.plot_file, n_plot=DEFAULTS.n_plot)
 
@@ -208,6 +218,11 @@ def mosaic(
     catalogs: str | None = typer.Option(None, help="pyongc catalogs to search (default: M)."),
     targets: str | None = typer.Option(None, help="User-defined targets file to search too."),
     csv: str | None = typer.Option(None, help="Write the panel list to this CSV file."),
+    nina: str | None = typer.Option(
+        None,
+        help="Write the panels as a N.I.N.A.-importable mosaic CSV "
+        "(one sequencer target per panel, camera rotation = PA).",
+    ),
 ) -> None:
     """Compute per-panel sky coordinates for a mosaic of TARGET with your rig."""
     import astropy.units as u
@@ -284,6 +299,11 @@ def mosaic(
                 for name, ra_hms, dec_dms, ra_d, dec_d in rows:
                     w.writerow([name, ra_hms, dec_dms, f"{ra_d:.5f}", f"{dec_d:.5f}"])
             print(f"\nPanel list written: {csv}")
+        if nina:
+            from harp.nina import write_mosaic_csv
+
+            n = write_mosaic_csv(t.name, panels, pa, nina)
+            print(f"N.I.N.A. mosaic list written: {nina} ({n} panels)")
     except HarpError as e:
         raise _fail(e) from None
 

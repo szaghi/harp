@@ -77,6 +77,28 @@ default 0 = North), and projected back to the sphere — correct at any
 declination. Output: `r1c1 ...` rows with RA/Dec in both sexagesimal and
 decimal degrees, ready for N.I.N.A. sequence targets.
 
+## N.I.N.A. integration
+
+HARP and N.I.N.A. share two interfaces:
+
+1. **The horizon**: the same `.hrz` file drives HARP's visibility and
+   N.I.N.A.'s horizon display (Options > General > Astrometry > Horizon).
+2. **Targets**: `--nina FILE` exports CSVs that N.I.N.A.'s sequencer
+   imports directly (Sequence > import targets, Telescopius format):
+
+```bash
+harp plan --nina tonight.csv          # ranked targets (the rows shown on screen)
+harp mosaic IC1396 --pa 30 --nina panels.csv   # one sequencer target per panel,
+                                               # camera rotation = position angle
+```
+
+The export format is pinned to N.I.N.A.'s actual importer source, not to
+documentation: coordinate strings match its digits-only parser, and the
+observing-list flavor deliberately emits only the `(J2000)` coordinate
+headers — N.I.N.A. has a known importer bug that reads a bare
+`Right Ascension` column for the declination too, which these files
+therefore never contain.
+
 ## Reading the output
 
 - **score** — composite desirability, 0-100: weighted geometric mean of the
