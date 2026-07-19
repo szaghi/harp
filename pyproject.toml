@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 # Distribution name: the bare "harp" is squatted on PyPI by an empty project
 # (PEP 541 request pending); import package and CLI command remain "harp".
 name = "harp-astro"
-version = "0.1.0"
+version = "0.1.5"
 description = "HARP - Horizon-Aware Recommender and Planner for deep-sky astrophotography sessions"
 readme = "README.md"
 license = { text = "GPL-3.0-or-later OR BSD-2-Clause OR BSD-3-Clause OR MIT" }

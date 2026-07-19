@@ -4,6 +4,15 @@ All notable changes to HARP are documented here.
 Versions follow [Semantic Versioning](https://semver.org/).
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.1.5] — 2026-07-19
+### Added
+- **links**: Informative web links per target and `harp info` command
+
+- **android**: Monorepo Android frontend — Chaquopy spike + horizon wizard
+
+- **android**: Camera aiming reticle for the horizon wizard
+
+
 ## [0.1.0] — 2026-07-19
 ### Added
 - Initial release of HARP, horizon-aware deep-sky session planner
