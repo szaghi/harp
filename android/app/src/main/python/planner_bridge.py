@@ -51,6 +51,7 @@ def run_plan(request_json: str) -> str:
                 sensor_name=sensor_name,
                 sensor_w_mm=sw,
                 sensor_h_mm=sh,
+                overlap=float(req.get("overlap") or 0.15),
             )
             hrz_path = req.get("hrz_path") or ""
             if hrz_path and Path(hrz_path).exists():
@@ -60,9 +61,13 @@ def run_plan(request_json: str) -> str:
                 horizon = Horizon.flat(0.0)
                 horizon_label = "flat 0 deg (no wizard capture yet)"
 
-            deep = bool(req.get("deep"))
+            catalogs = [
+                c.strip().upper()
+                for c in str(req.get("catalogs") or "M").split(",")
+                if c.strip()
+            ]
             targets = build_targets(
-                pyongc_catalogs=["M", "NGC", "IC"] if deep else ["M"],
+                pyongc_catalogs=catalogs,
                 mag_limit=float(req.get("mag_limit") or 11.0),
             )
             plan = plan_night(
@@ -71,10 +76,18 @@ def run_plan(request_json: str) -> str:
                 horizon=horizon,
                 targets=targets,
                 date=(req.get("date") or None),
-                grid_min=10,  # phone budget: half the samples of the CLI default
+                grid_min=int(req.get("grid_min") or 10),
+                min_moon_sep=float(req.get("moon_sep") or 30.0),
+                min_hours=float(req.get("min_hours") or 1.0),
+                min_peak_alt=float(req.get("min_peak_alt") or 20.0),
+                sort=str(req.get("sort") or "score"),
                 horizon_label=horizon_label,
             )
-        out = plan_to_dict(plan, top=int(req.get("top") or 30))
+        out = plan_to_dict(
+            plan,
+            top=int(req.get("top") or 30),
+            link_site=str(req.get("link_site") or "simbad"),
+        )
         out["elapsed_s"] = round(time.perf_counter() - t0, 1)
         out["n_targets"] = len(targets)
         return json.dumps(out)

@@ -13,6 +13,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -37,11 +38,9 @@ class PlanViewModel(app: Application) : AndroidViewModel(app) {
     var error by mutableStateOf(""); private set
     val rows = mutableStateListOf<PlanRowUi>()
 
-    // user inputs (defaults: Stefano's rig; editable in the UI)
+    // per-run input; everything else lives in Settings (DataStore)
     var date by mutableStateOf("")
-    var focal by mutableStateOf("800")
-    var sensor by mutableStateOf("23.5x15.7")
-    var deep by mutableStateOf(false)
+    private val settingsRepo = SettingsRepo(app)
 
     private fun lastKnownLocation(): Triple<Double, Double, Double>? {
         val ctx = getApplication<Application>()
@@ -77,8 +76,9 @@ class PlanViewModel(app: Application) : AndroidViewModel(app) {
         running = true
         error = ""
         rows.clear()
-        summary = if (deep) "planning (deep NGC/IC search)..." else "planning..."
         viewModelScope.launch {
+            val s = settingsRepo.flow.first()
+            summary = "planning (${s.catalogs})..."
             val result = withContext(Dispatchers.IO) {
                 val request = JSONObject().apply {
                     put("lat", loc.first)
@@ -87,10 +87,18 @@ class PlanViewModel(app: Application) : AndroidViewModel(app) {
                     put("tz", TimeZone.getDefault().id)
                     put("date", date.trim())
                     put("hrz_path", wizardHorizonPath())
-                    put("focal_mm", focal.toDoubleOrNull() ?: 800.0)
-                    put("sensor", sensor.trim())
-                    put("deep", deep)
-                    put("top", 30)
+                    put("focal_mm", s.focal.toDouble())
+                    put("sensor", s.sensor)
+                    put("overlap", s.overlap.toDouble())
+                    put("min_hours", s.minHours.toDouble())
+                    put("min_peak_alt", s.minPeakAlt.toDouble())
+                    put("moon_sep", s.moonSep.toDouble())
+                    put("mag_limit", s.magLimit.toDouble())
+                    put("top", s.top)
+                    put("sort", if (s.sortByScore) "score" else "hours")
+                    put("grid_min", s.gridMin)
+                    put("catalogs", s.catalogs)
+                    put("link_site", s.linkSite)
                 }
                 try {
                     PyBridge.py.getModule("planner_bridge")

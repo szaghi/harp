@@ -13,8 +13,8 @@ android {
         applicationId = "org.szaghi.harp"
         minSdk = 26
         targetSdk = 35
-        versionCode = 7
-        versionName = "0.2.0"
+        versionCode = 8
+        versionName = "0.3.0"
         ndk {
             // phones only; add "x86_64" to also run on the emulator
             abiFilters += listOf("arm64-v8a")
@@ -73,6 +73,7 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
     // camera reticle (phase 2b)
     implementation("androidx.camera:camera-core:1.4.1")
     implementation("androidx.camera:camera-camera2:1.4.1")

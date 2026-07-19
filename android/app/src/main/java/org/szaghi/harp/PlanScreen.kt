@@ -17,7 +17,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -35,36 +34,13 @@ fun PlanScreen(vm: PlanViewModel) {
     val context = LocalContext.current
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(
-                value = vm.date,
-                onValueChange = { vm.date = it },
-                label = { Text("date (empty=tonight)") },
-                modifier = Modifier.weight(1.2f),
-                singleLine = true,
-            )
-            OutlinedTextField(
-                value = vm.focal,
-                onValueChange = { vm.focal = it },
-                label = { Text("focal mm") },
-                modifier = Modifier.weight(0.8f),
-                singleLine = true,
-            )
-        }
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            OutlinedTextField(
-                value = vm.sensor,
-                onValueChange = { vm.sensor = it },
-                label = { Text("sensor WxH mm") },
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-            )
-            Text("Deep NGC/IC", style = MaterialTheme.typography.bodySmall)
-            Switch(checked = vm.deep, onCheckedChange = { vm.deep = it })
-        }
+        OutlinedTextField(
+            value = vm.date,
+            onValueChange = { vm.date = it },
+            label = { Text("date YYYY-MM-DD (empty = tonight)") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
         Spacer(Modifier.height(8.dp))
         Button(
             onClick = { vm.runPlan() },
