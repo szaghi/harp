@@ -61,8 +61,31 @@ Duplicates across sources are detected by shared catalog designation
 (OpenNGC cross-ids: M42 == NGC1976), with a tight 2-arcmin positional
 fallback — close neighbours like M43 stay distinct.
 
+## Mosaic panel coordinates
+
+When the plan says `mosaic NxM`, get the actual per-panel centers:
+
+```bash
+harp mosaic IC1396                        # rig from config (default optics)
+harp mosaic "North America" --pa 30       # major axis at position angle 30 deg
+harp mosaic M31 --csv m31_panels.csv
+```
+
+Panels are laid out in the tangent plane with your rig's overlap, rotated by
+`--pa` (position angle of the object's major axis, North through East,
+default 0 = North), and projected back to the sphere — correct at any
+declination. Output: `r1c1 ...` rows with RA/Dec in both sexagesimal and
+decimal degrees, ready for N.I.N.A. sequence targets.
+
 ## Reading the output
 
+- **score** — composite desirability, 0-100: weighted geometric mean of the
+  continuous window (weight 3, saturates at 3 h), total hours (1, saturates
+  at 5 h), peak altitude (2, as sin(alt) — the inverse-airmass proxy), the
+  Moon verdict (2), and how well the object fills your field of view (1).
+  Geometric, so one hopeless factor sinks the score instead of averaging
+  away. Default ranking; `--sort hours` restores the historical
+  hours-above-horizon order.
 - **hrs** — total hours above your horizon during astronomical darkness.
 - **cont / window** — longest **continuous** run and its interval: how long
   you can integrate before the object enters a blocked sector. Size exposures

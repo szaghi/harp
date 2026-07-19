@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import warnings
 from dataclasses import dataclass
 from zoneinfo import ZoneInfo
@@ -16,7 +17,18 @@ from harp.ephemeris import MoonState, NightWindow, compute_night, fmt_hm, moon_s
 from harp.horizon import Horizon
 from harp.optics import Rig
 
-__all__ = ["NightPlan", "PlanRow", "Site", "longest_window", "moon_impact", "plan_night"]
+__all__ = [
+    "NightPlan",
+    "PlanRow",
+    "Site",
+    "desirability",
+    "longest_window",
+    "moon_impact",
+    "plan_night",
+]
+
+# Moon-impact verdict -> multiplicative score factor.
+_MOON_FACTOR = {"none": 1.0, "ok(NB)": 0.9, "low": 0.8, "med": 0.5, "close": 0.4, "high": 0.2}
 
 
 @dataclass(frozen=True)
@@ -71,6 +83,7 @@ class PlanRow:
     moon: str  # Moon-impact classification
     frame: str  # '1 frame' or 'mosaic NxM'
     detail: str  # single-frame suggestion for mosaic targets
+    score: float  # composite desirability, 0-100 (see desirability())
 
 
 @dataclass(frozen=True)
@@ -144,6 +157,58 @@ def moon_impact(narrowband: bool, sep_min: float, moon_up_frac: float, illuminat
     return "med"
 
 
+def _fov_match(maj_arcmin: float | None, fov_long: float) -> float:
+    """How well the object size suits the field of view, in (0, 1].
+
+    Peaks when the major axis spans 20-100% of the long FOV side; tiny
+    specks and many-panel mosaics score progressively lower. Unknown size
+    is neutral (0.6) — no reward, no punishment.
+    """
+    if maj_arcmin is None:
+        return 0.6
+    r = maj_arcmin / fov_long
+    if r < 0.05:
+        return 0.3
+    if r < 0.2:
+        return 0.3 + 0.7 * (r - 0.05) / 0.15
+    if r <= 1.0:
+        return 1.0
+    return max(0.2, 1.0 / r)
+
+
+def desirability(
+    hours: float,
+    cont_hours: float,
+    alt_max: float,
+    moon: str,
+    maj_arcmin: float | None,
+    fov_long: float,
+) -> float:
+    """Composite 0-100 desirability score for one target on one night.
+
+    Weighted geometric mean of five terms, so a near-zero factor (no
+    continuous window, hopeless Moon) sinks the score instead of being
+    averaged away:
+
+    - continuous window (weight 3): ``min(cont_hours/3, 1)`` — the longest
+      uninterrupted run is what sizes an imaging session; saturates at 3 h;
+    - total hours (weight 1): ``min(hours/5, 1)``;
+    - peak altitude (weight 2): ``sin(alt_max)`` — the inverse-airmass proxy;
+    - Moon verdict (weight 2): 1.0 (none) down to 0.2 (high);
+    - FOV match (weight 1): see :func:`_fov_match`.
+    """
+    terms = [
+        (3.0, min(cont_hours / 3.0, 1.0)),
+        (1.0, min(hours / 5.0, 1.0)),
+        (2.0, math.sin(math.radians(max(alt_max, 0.0)))),
+        (2.0, _MOON_FACTOR.get(moon, 0.5)),
+        (1.0, _fov_match(maj_arcmin, fov_long)),
+    ]
+    num = sum(w * math.log(max(t, 1e-3)) for w, t in terms)
+    den = sum(w for w, _ in terms)
+    return 100.0 * math.exp(num / den)
+
+
 def plan_night(
     site: Site,
     rig: Rig,
@@ -155,6 +220,7 @@ def plan_night(
     min_hours: float = 1.0,
     min_peak_alt: float = 20.0,
     horizon_label: str = "",
+    sort: str = "score",
 ) -> NightPlan:
     """Plan one night: rank targets observable through the site horizon.
 
@@ -184,6 +250,9 @@ def plan_night(
         Keep targets peaking at least this high (degrees).
     horizon_label : str
         Horizon description for the report header (e.g. the .hrz filename).
+    sort : str
+        Row ranking: ``'score'`` (composite desirability, default) or
+        ``'hours'`` (total usable hours, the historical order).
 
     Returns
     -------
@@ -224,6 +293,8 @@ def plan_night(
             else "--"
         )
         frame = rig.framing(t.maj_arcmin, t.min_arcmin)
+        moon_verdict = moon_impact(t.narrowband, sep_min, up_frac, moon.illumination)
+        cont_h = round(cw * window.dt_hours, 1)
         rows.append(
             PlanRow(
                 index=i,
@@ -232,18 +303,30 @@ def plan_night(
                 const=t.const,
                 mag=t.mag,
                 hours=round(float(hours[i]), 1),
-                cont_hours=round(cw * window.dt_hours, 1),
+                cont_hours=cont_h,
                 window=win_str,
                 alt_max=round(peak_alt),
                 az_peak=round(float(az[i, peak_i[i]])),
                 peak_time=fmt_hm(window.times[peak_i[i]], window.tz),
                 moon_sep=round(sep_min),
-                moon=moon_impact(t.narrowband, sep_min, up_frac, moon.illumination),
+                moon=moon_verdict,
                 frame=frame,
                 detail=suggest_detail(t.name) if frame.startswith("mosaic") else "",
+                score=round(
+                    desirability(
+                        hours=float(hours[i]),
+                        cont_hours=cont_h,
+                        alt_max=peak_alt,
+                        moon=moon_verdict,
+                        maj_arcmin=t.maj_arcmin,
+                        fov_long=rig.fov_long,
+                    ),
+                    1,
+                ),
             )
         )
-    rows.sort(key=lambda r: r.hours, reverse=True)
+    key = (lambda r: r.hours) if sort == "hours" else (lambda r: r.score)
+    rows.sort(key=key, reverse=True)
 
     return NightPlan(
         site=site,

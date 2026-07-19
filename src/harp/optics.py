@@ -96,6 +96,24 @@ class Rig:
         """Shorter field-of-view side, in arcminutes."""
         return min(self.fov_w, self.fov_h)
 
+    def grid_dims(
+        self, maj_arcmin: float | None, min_arcmin: float | None
+    ) -> tuple[int, int] | None:
+        """Mosaic grid needed to cover an object: ``(nx, ny)`` panels.
+
+        ``nx`` counts panels along the object's major axis (covered by the
+        long field-of-view side), ``ny`` along the minor axis. ``(1, 1)``
+        means the object fits a single frame; ``None`` means size unknown.
+        """
+        if maj_arcmin is None:
+            return None
+        minr = min_arcmin if min_arcmin else maj_arcmin
+        if maj_arcmin <= self.fov_long * self.margin and minr <= self.fov_short * self.margin:
+            return (1, 1)
+        nx = max(1, math.ceil(maj_arcmin / (self.fov_long * (1.0 - self.overlap))))
+        ny = max(1, math.ceil(minr / (self.fov_short * (1.0 - self.overlap))))
+        return (nx, ny)
+
     def framing(self, maj_arcmin: float | None, min_arcmin: float | None) -> str:
         """Classify an object as ``'1 frame'`` or ``'mosaic NxM'``.
 
@@ -105,11 +123,8 @@ class Rig:
             Object major/minor axis in arcminutes; ``None`` size gives
             ``'n/a'``, a missing minor axis falls back to the major one.
         """
-        if maj_arcmin is None:
+        dims = self.grid_dims(maj_arcmin, min_arcmin)
+        if dims is None:
             return "n/a"
-        minr = min_arcmin if min_arcmin else maj_arcmin
-        if maj_arcmin <= self.fov_long * self.margin and minr <= self.fov_short * self.margin:
-            return "1 frame"
-        nx = max(1, math.ceil(maj_arcmin / (self.fov_long * (1.0 - self.overlap))))
-        ny = max(1, math.ceil(minr / (self.fov_short * (1.0 - self.overlap))))
+        nx, ny = dims
         return "1 frame" if nx * ny == 1 else f"mosaic {nx}x{ny}"

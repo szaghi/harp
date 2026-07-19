@@ -90,6 +90,10 @@ def plan(
         None, "--min-hours", help="Minimum usable hours to keep a target."
     ),
     top: int | None = typer.Option(None, help="Rows shown on screen."),
+    sort: str = typer.Option(
+        "score",
+        help="Ranking: 'score' (composite desirability) or 'hours' (historical order).",
+    ),
     no_plot: bool = typer.Option(False, "--no-plot", help="Do not draw the chart."),
     no_pyongc: bool = typer.Option(
         False, "--no-pyongc", help="Curated nebulae only (no Messier/NGC from pyongc)."
@@ -110,6 +114,8 @@ def plan(
     from harp.planner import Site, plan_night
     from harp.report import plot_charts, print_notes, print_report, write_csv
 
+    if sort not in ("score", "hours"):
+        raise _fail(ValueError(f"unknown sort {sort!r}: choose 'score' or 'hours'"))
     try:
         cfg_path = find_config(config)
         cfg = load_config(cfg_path) if cfg_path else {}
@@ -172,6 +178,7 @@ def plan(
             min_hours=pick(min_hours, "min_hours", cfg, DEFAULTS.min_hours),
             min_peak_alt=DEFAULTS.min_peak_alt,
             horizon_label=horizon_label,
+            sort=sort,
         )
     except HarpError as e:
         raise _fail(e) from None
@@ -182,6 +189,103 @@ def plan(
     print_notes(the_plan, top=top_n)
     if not no_plot:
         plot_charts(the_plan, png or DEFAULTS.plot_file, n_plot=DEFAULTS.n_plot)
+
+
+@app.command()
+def mosaic(
+    target: str = typer.Argument(
+        ..., help="Target to frame: designation (M31, IC1396) or name substring."
+    ),
+    config: str | None = typer.Option(None, help="Sites/optics config file."),
+    optics: str | None = typer.Option(None, help="Optical-setup name in the config."),
+    focal: float | None = typer.Option(None, help="Focal length (mm)."),
+    sensor: str | None = typer.Option(None, help="A sensor preset or 'WxH' in mm."),
+    pa: float = typer.Option(
+        0.0,
+        help="Position angle of the object's major axis (deg, North through East); "
+        "0 puts the major axis toward North.",
+    ),
+    catalogs: str | None = typer.Option(None, help="pyongc catalogs to search (default: M)."),
+    targets: str | None = typer.Option(None, help="User-defined targets file to search too."),
+    csv: str | None = typer.Option(None, help="Write the panel list to this CSV file."),
+) -> None:
+    """Compute per-panel sky coordinates for a mosaic of TARGET with your rig."""
+    import astropy.units as u
+
+    from harp.catalog import build_targets, find_targets
+    from harp.mosaic import mosaic_panels
+    from harp.optics import Rig, parse_sensor
+
+    try:
+        cfg_path = find_config(config)
+        cfg = load_config(cfg_path) if cfg_path else {}
+        _, optics_cfg = resolve_section(cfg, "optics", optics, cfg_path)
+        sensor_name, sw, sh = parse_sensor(pick(sensor, "sensor", optics_cfg, DEFAULTS.sensor))
+        rig = Rig(
+            focal_mm=pick(focal, "focal", optics_cfg, DEFAULTS.focal_mm),
+            sensor_name=sensor_name,
+            sensor_w_mm=sw,
+            sensor_h_mm=sh,
+        )
+
+        cat_val = pick(catalogs, "catalogs", cfg, "M")
+        cat_list = (
+            [c.strip().upper() for c in cat_val.split(",") if c.strip()]
+            if isinstance(cat_val, str)
+            else [str(c).upper() for c in cat_val]
+        )
+        targets_val = pick(targets, "targets", cfg, None)
+        all_targets = build_targets(pyongc_catalogs=cat_list, targets_file=targets_val)
+
+        matches = find_targets(target, all_targets)
+        if not matches:
+            raise _fail(ValueError(f"no target matches {target!r}"))
+        if len(matches) > 1:
+            typer.secho(f"ambiguous target {target!r}, matches:", err=True)
+            for t in matches[:15]:
+                typer.secho(f"  - {t.name}", err=True)
+            raise typer.Exit(1)
+        t = matches[0]
+
+        dims = rig.grid_dims(t.maj_arcmin, t.min_arcmin)
+        if dims is None:
+            raise _fail(ValueError(f"{t.name}: no size in catalog, cannot plan a mosaic"))
+        nx, ny = dims
+
+        size = f"{t.maj_arcmin:.0f}' x {t.min_arcmin or t.maj_arcmin:.0f}'"
+        print(f"Target: {t.name}  ({size})")
+        print(
+            f"Rig: {rig.focal_mm:.0f} mm + {rig.sensor_name}  ->  "
+            f"panel FOV {rig.fov_long:.0f}' x {rig.fov_short:.0f}', "
+            f"overlap {rig.overlap * 100:.0f}%"
+        )
+        if nx * ny == 1:
+            print("Fits in a single frame — no mosaic needed. Center:")
+        else:
+            print(f"Grid: {nx} x {ny} panels, major axis at PA {pa:.0f} deg\n")
+
+        panels = mosaic_panels(t.coord, nx, ny, rig, pa_deg=pa)
+        rows = []
+        for p in panels:
+            ra_hms = p.coord.ra.to_string(unit=u.hourangle, sep="hms", precision=0, pad=True)
+            dec_dms = p.coord.dec.to_string(sep="dms", precision=0, alwayssign=True, pad=True)
+            rows.append((f"r{p.row}c{p.col}", ra_hms, dec_dms, p.coord.ra.deg, p.coord.dec.deg))
+
+        print(f"{'panel':<7}{'RA (J2000)':<14}{'Dec (J2000)':<15}{'RA deg':>10}{'Dec deg':>10}")
+        for name, ra_hms, dec_dms, ra_d, dec_d in rows:
+            print(f"{name:<7}{ra_hms:<14}{dec_dms:<15}{ra_d:>10.4f}{dec_d:>10.4f}")
+
+        if csv:
+            import csv as csv_mod
+
+            with Path(csv).open("w", newline="") as f:
+                w = csv_mod.writer(f)
+                w.writerow(["panel", "ra_hms", "dec_dms", "ra_deg", "dec_deg"])
+                for name, ra_hms, dec_dms, ra_d, dec_d in rows:
+                    w.writerow([name, ra_hms, dec_dms, f"{ra_d:.5f}", f"{dec_d:.5f}"])
+            print(f"\nPanel list written: {csv}")
+    except HarpError as e:
+        raise _fail(e) from None
 
 
 @app.command(name="list")

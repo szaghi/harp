@@ -19,7 +19,14 @@ from harp.errors import CatalogError
 
 log = logging.getLogger(__name__)
 
-__all__ = ["PYONGC_CATALOGS", "Target", "build_targets", "suggest_detail", "user_targets"]
+__all__ = [
+    "PYONGC_CATALOGS",
+    "Target",
+    "build_targets",
+    "find_targets",
+    "suggest_detail",
+    "user_targets",
+]
 
 # Catalogs pyongc can enumerate offline.
 PYONGC_CATALOGS = ("M", "NGC", "IC")
@@ -361,6 +368,21 @@ def user_targets(path: str | Path) -> list[Target]:
         except (KeyError, ValueError) as e:
             raise CatalogError(f"bad entry #{n} in {path}: {e}") from e
     return out
+
+
+def find_targets(query: str, targets: list[Target]) -> list[Target]:
+    """Find targets by designation or name substring.
+
+    A designation query (``m42``, ``NGC 7000``, ``ic1396``) matches exactly
+    via normalized identifiers; otherwise the query is a case-insensitive
+    substring of the target name.
+    """
+    q_ident = _norm_ident(query)
+    exact = [t for t in targets if q_ident in t.idents]
+    if exact:
+        return exact
+    q = query.lower()
+    return [t for t in targets if q in t.name.lower()]
 
 
 def build_targets(

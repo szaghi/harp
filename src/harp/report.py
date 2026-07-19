@@ -19,6 +19,7 @@ __all__ = ["plot_charts", "print_notes", "print_report", "write_csv"]
 
 _CSV_FIELDS = [
     "object",
+    "score",
     "kind",
     "const",
     "mag",
@@ -40,6 +41,7 @@ def _row_record(r: PlanRow) -> dict[str, object]:
     d = asdict(r)
     return {
         "object": d["name"],
+        "score": d["score"],
         "kind": d["kind"],
         "const": d["const"],
         "mag": d["mag"] if d["mag"] is not None else "",
@@ -72,14 +74,14 @@ def print_report(plan: NightPlan, top: int) -> None:
     )
 
     hdr = (
-        f"{'#':>2} {'object':<22}{'kind':<11}{'const':<6}{'hrs':>5}{'cont':>5}"
+        f"{'#':>2} {'object':<22}{'score':>6} {'kind':<10}{'const':<6}{'hrs':>5}{'cont':>5}"
         f"{'window':>13}{'altMx':>6}{'az':>5}{'moonSep':>8}{'Moon':>7}  frame"
     )
     print(hdr)
     print("-" * len(hdr))
     for k, r in enumerate(plan.rows[:top], 1):
         print(
-            f"{k:>2} {r.name:<22}{r.kind[:10]:<11}{r.const:<6}"
+            f"{k:>2} {r.name:<22}{r.score:>6.0f} {r.kind[:9]:<10}{r.const:<6}"
             f"{r.hours:>5}{r.cont_hours:>5}{r.window:>13}{r.alt_max:>6.0f}"
             f"{r.az_peak:>5.0f}{r.moon_sep:>8.0f}{r.moon:>7}  {r.frame}"
         )

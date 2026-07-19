@@ -83,10 +83,47 @@ def test_plan_smoke(runner: CliRunner, tmp_path: Path) -> None:
     assert csv_out.exists()
     header = csv_out.read_text().splitlines()[0]
     assert (
-        header == "object,kind,const,mag,hours,cont,window,altmax,az,peak,moonsep,moon,frame,detail"
+        header
+        == "object,score,kind,const,mag,hours,cont,window,altmax,az,peak,moonsep,moon,frame,detail"
     )
     # August night from the balcony: Cygnus/Cepheus nebulae must be in
     assert "IC1396 Elephant Trunk" in result.output
+
+
+def test_plan_sort_hours_restores_hours_ranking(runner: CliRunner, tmp_path: Path) -> None:
+    import csv as csv_mod
+
+    outputs = {}
+    for mode in ("score", "hours"):
+        out = tmp_path / f"{mode}.csv"
+        result = runner.invoke(
+            app,
+            [
+                "plan",
+                "2026-08-15",
+                "--config",
+                str(EXAMPLES / "sites.yaml"),
+                "--no-pyongc",
+                "--no-plot",
+                "--sort",
+                mode,
+                "--csv",
+                str(out),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        with out.open() as f:
+            outputs[mode] = list(csv_mod.DictReader(f))
+    hours = [float(r["hours"]) for r in outputs["hours"]]
+    assert hours == sorted(hours, reverse=True)
+    scores = [float(r["score"]) for r in outputs["score"]]
+    assert scores == sorted(scores, reverse=True)
+
+
+def test_plan_bad_sort_fails(runner: CliRunner) -> None:
+    result = runner.invoke(app, ["plan", "--sort", "vibes"])
+    assert result.exit_code == 1
+    assert "unknown sort" in result.output
 
 
 def test_plan_with_user_targets(runner: CliRunner, tmp_path: Path) -> None:
@@ -117,6 +154,32 @@ def test_plan_with_user_targets(runner: CliRunner, tmp_path: Path) -> None:
     )
     assert result.exit_code == 0, result.output
     assert "My Cygnus Field" in result.output
+
+
+def test_mosaic_command(runner: CliRunner, tmp_path: Path) -> None:
+    out = tmp_path / "panels.csv"
+    result = runner.invoke(
+        app,
+        ["mosaic", "IC1396", "--config", str(EXAMPLES / "sites.yaml"), "--csv", str(out)],
+    )
+    assert result.exit_code == 0, result.output
+    assert "Grid: 2 x 3 panels" in result.output
+    assert result.output.count("r1c") == 2  # 2 columns in row 1
+    lines = out.read_text().splitlines()
+    assert lines[0] == "panel,ra_hms,dec_dms,ra_deg,dec_deg"
+    assert len(lines) == 7  # header + 6 panels
+
+
+def test_mosaic_single_frame_target(runner: CliRunner) -> None:
+    result = runner.invoke(app, ["mosaic", "NGC6888", "--config", str(EXAMPLES / "sites.yaml")])
+    assert result.exit_code == 0, result.output
+    assert "single frame" in result.output
+
+
+def test_mosaic_ambiguous_query(runner: CliRunner) -> None:
+    result = runner.invoke(app, ["mosaic", "Veil", "--config", str(EXAMPLES / "sites.yaml")])
+    assert result.exit_code == 1
+    assert "ambiguous" in result.output
 
 
 def test_plan_bad_catalogs_fails(runner: CliRunner, tmp_path: Path) -> None:
