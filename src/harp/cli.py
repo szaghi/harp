@@ -37,6 +37,43 @@ def _fail(err: Exception) -> typer.Exit:
     return typer.Exit(1)
 
 
+def _catalog_list(cfg: dict, catalogs: str | None) -> list[str]:
+    """Resolve the pyongc catalog selection (CLI > config > 'M')."""
+    cat_val = pick(catalogs, "catalogs", cfg, "M")
+    if isinstance(cat_val, str):
+        return [c.strip().upper() for c in cat_val.split(",") if c.strip()]
+    return [str(c).upper() for c in cat_val]
+
+
+def _resolve_rig(cfg: dict, cfg_path, optics: str | None, focal: float | None, sensor: str | None):
+    """Resolve the optical rig from CLI > config optics section > defaults."""
+    from harp.optics import Rig, parse_sensor
+
+    _, optics_cfg = resolve_section(cfg, "optics", optics, cfg_path)
+    sensor_name, sw, sh = parse_sensor(pick(sensor, "sensor", optics_cfg, DEFAULTS.sensor))
+    return Rig(
+        focal_mm=pick(focal, "focal", optics_cfg, DEFAULTS.focal_mm),
+        sensor_name=sensor_name,
+        sensor_w_mm=sw,
+        sensor_h_mm=sh,
+    )
+
+
+def _find_one_target(query: str, all_targets: list):
+    """Resolve a query to exactly one target or exit with a helpful error."""
+    from harp.catalog import find_targets
+
+    matches = find_targets(query, all_targets)
+    if not matches:
+        raise _fail(ValueError(f"no target matches {query!r}"))
+    if len(matches) > 1:
+        typer.secho(f"ambiguous target {query!r}, matches:", err=True)
+        for t in matches[:15]:
+            typer.secho(f"  - {t.name}", err=True)
+        raise typer.Exit(1)
+    return matches[0]
+
+
 @app.callback()
 def main(
     version: bool = typer.Option(
@@ -94,6 +131,12 @@ def plan(
         "score",
         help="Ranking: 'score' (composite desirability) or 'hours' (historical order).",
     ),
+    link_site: str | None = typer.Option(
+        None,
+        "--link-site",
+        help="Provider for the CSV 'link' column: simbad (default), wikipedia "
+        "(may 404 on faint objects), astrobin, aladin.",
+    ),
     no_plot: bool = typer.Option(False, "--no-plot", help="Do not draw the chart."),
     no_pyongc: bool = typer.Option(
         False, "--no-pyongc", help="Curated nebulae only (no Messier/NGC from pyongc)."
@@ -115,7 +158,7 @@ def plan(
     # paid by --help and unrelated subcommands too.
     from harp.catalog import build_targets
     from harp.horizon import Horizon
-    from harp.optics import Rig, parse_sensor
+    from harp.links import LINK_PROVIDERS
     from harp.planner import Site, plan_night
     from harp.report import plot_charts, print_notes, print_report, write_csv
 
@@ -125,7 +168,6 @@ def plan(
         cfg_path = find_config(config)
         cfg = load_config(cfg_path) if cfg_path else {}
         site_name, site_cfg = resolve_section(cfg, "sites", site, cfg_path)
-        _, optics_cfg = resolve_section(cfg, "optics", optics, cfg_path)
 
         the_site = Site(
             label=pick(label, "label", site_cfg, site_name or DEFAULTS.site_label),
@@ -134,13 +176,15 @@ def plan(
             elev=pick(elev, "elev", site_cfg, DEFAULTS.elev),
             tz=pick(tz, "tz", site_cfg, DEFAULTS.tz),
         )
-        sensor_name, sw, sh = parse_sensor(pick(sensor, "sensor", optics_cfg, DEFAULTS.sensor))
-        rig = Rig(
-            focal_mm=pick(focal, "focal", optics_cfg, DEFAULTS.focal_mm),
-            sensor_name=sensor_name,
-            sensor_w_mm=sw,
-            sensor_h_mm=sh,
-        )
+        rig = _resolve_rig(cfg, cfg_path, optics, focal, sensor)
+
+        link_provider = pick(link_site, "link_site", cfg, "simbad")
+        if link_provider not in LINK_PROVIDERS:
+            raise _fail(
+                ValueError(
+                    f"unknown link site {link_provider!r}: choose from {', '.join(LINK_PROVIDERS)}"
+                )
+            )
 
         hrz_val = pick(hrz, "hrz", site_cfg, None)
         if hrz_val is None:
@@ -152,12 +196,6 @@ def plan(
                 hrz_path = cfg_path.parent / hrz_path
             horizon, horizon_label = Horizon.from_hrz(hrz_path), str(hrz_path)
 
-        cat_val = pick(catalogs, "catalogs", cfg, "M")
-        cat_list = (
-            [c.strip().upper() for c in cat_val.split(",") if c.strip()]
-            if isinstance(cat_val, str)
-            else [str(c).upper() for c in cat_val]
-        )
         targets_val = pick(targets, "targets", cfg, None)
         targets_path = None
         if targets_val is not None:
@@ -168,7 +206,7 @@ def plan(
 
         target_list = build_targets(
             use_pyongc=not no_pyongc,
-            pyongc_catalogs=cat_list,
+            pyongc_catalogs=_catalog_list(cfg, catalogs),
             mag_limit=pick(mag_limit, "mag_limit", cfg, DEFAULTS.mag_limit),
             targets_file=targets_path,
         )
@@ -190,7 +228,7 @@ def plan(
 
     top_n = pick(top, "top", cfg, DEFAULTS.top)
     print_report(the_plan, top=top_n)
-    write_csv(the_plan, csv or DEFAULTS.csv_file)
+    write_csv(the_plan, csv or DEFAULTS.csv_file, link_site=link_provider)
     print_notes(the_plan, top=top_n)
     if nina:
         from harp.nina import write_targets_csv
@@ -227,40 +265,18 @@ def mosaic(
     """Compute per-panel sky coordinates for a mosaic of TARGET with your rig."""
     import astropy.units as u
 
-    from harp.catalog import build_targets, find_targets
+    from harp.catalog import build_targets
     from harp.mosaic import mosaic_panels
-    from harp.optics import Rig, parse_sensor
 
     try:
         cfg_path = find_config(config)
         cfg = load_config(cfg_path) if cfg_path else {}
-        _, optics_cfg = resolve_section(cfg, "optics", optics, cfg_path)
-        sensor_name, sw, sh = parse_sensor(pick(sensor, "sensor", optics_cfg, DEFAULTS.sensor))
-        rig = Rig(
-            focal_mm=pick(focal, "focal", optics_cfg, DEFAULTS.focal_mm),
-            sensor_name=sensor_name,
-            sensor_w_mm=sw,
-            sensor_h_mm=sh,
+        rig = _resolve_rig(cfg, cfg_path, optics, focal, sensor)
+        all_targets = build_targets(
+            pyongc_catalogs=_catalog_list(cfg, catalogs),
+            targets_file=pick(targets, "targets", cfg, None),
         )
-
-        cat_val = pick(catalogs, "catalogs", cfg, "M")
-        cat_list = (
-            [c.strip().upper() for c in cat_val.split(",") if c.strip()]
-            if isinstance(cat_val, str)
-            else [str(c).upper() for c in cat_val]
-        )
-        targets_val = pick(targets, "targets", cfg, None)
-        all_targets = build_targets(pyongc_catalogs=cat_list, targets_file=targets_val)
-
-        matches = find_targets(target, all_targets)
-        if not matches:
-            raise _fail(ValueError(f"no target matches {target!r}"))
-        if len(matches) > 1:
-            typer.secho(f"ambiguous target {target!r}, matches:", err=True)
-            for t in matches[:15]:
-                typer.secho(f"  - {t.name}", err=True)
-            raise typer.Exit(1)
-        t = matches[0]
+        t = _find_one_target(target, all_targets)
 
         dims = rig.grid_dims(t.maj_arcmin, t.min_arcmin)
         if dims is None:
@@ -304,6 +320,60 @@ def mosaic(
 
             n = write_mosaic_csv(t.name, panels, pa, nina)
             print(f"N.I.N.A. mosaic list written: {nina} ({n} panels)")
+    except HarpError as e:
+        raise _fail(e) from None
+
+
+@app.command()
+def info(
+    target: str = typer.Argument(
+        ..., help="Target to describe: designation (M31, IC1396) or name substring."
+    ),
+    config: str | None = typer.Option(None, help="Sites/optics config file."),
+    optics: str | None = typer.Option(None, help="Optical-setup name in the config."),
+    focal: float | None = typer.Option(None, help="Focal length (mm)."),
+    sensor: str | None = typer.Option(None, help="A sensor preset or 'WxH' in mm."),
+    catalogs: str | None = typer.Option(None, help="pyongc catalogs to search (default: M)."),
+    targets: str | None = typer.Option(None, help="User-defined targets file to search too."),
+) -> None:
+    """Show what HARP knows about TARGET, plus informative web links."""
+    import astropy.units as u
+
+    from harp.catalog import build_targets, suggest_detail
+    from harp.links import LINK_PROVIDERS, target_link
+
+    try:
+        cfg_path = find_config(config)
+        cfg = load_config(cfg_path) if cfg_path else {}
+        rig = _resolve_rig(cfg, cfg_path, optics, focal, sensor)
+        all_targets = build_targets(
+            pyongc_catalogs=_catalog_list(cfg, catalogs),
+            targets_file=pick(targets, "targets", cfg, None),
+        )
+        t = _find_one_target(target, all_targets)
+
+        ra = t.coord.ra.to_string(unit=u.hourangle, sep="hms", precision=0, pad=True)
+        dec = t.coord.dec.to_string(sep="dms", precision=0, alwayssign=True, pad=True)
+        size = (
+            f"{t.maj_arcmin:.0f}' x {(t.min_arcmin or t.maj_arcmin):.0f}'"
+            if t.maj_arcmin
+            else "unknown"
+        )
+        frame = rig.framing(t.maj_arcmin, t.min_arcmin)
+
+        print(t.name)
+        print(f"  designations : {', '.join(sorted(t.idents)) or '(none)'}")
+        print(f"  kind         : {t.kind}" + ("  [narrowband-friendly]" if t.narrowband else ""))
+        print(f"  constellation: {t.const or '-'}")
+        print(f"  coordinates  : {ra}  {dec}  (J2000)")
+        print(f"  magnitude    : {t.mag if t.mag is not None else '-'}")
+        print(f"  size         : {size}")
+        print(f"  framing      : {frame}  ({rig.focal_mm:.0f} mm + {rig.sensor_name})")
+        if frame.startswith("mosaic"):
+            print(f"  detail       : {suggest_detail(t.name)}")
+        print("  links:")
+        for provider in LINK_PROVIDERS:
+            print(f"    {provider:<10}: {target_link(t, provider)}")
     except HarpError as e:
         raise _fail(e) from None
 

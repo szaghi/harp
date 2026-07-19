@@ -33,10 +33,11 @@ _CSV_FIELDS = [
     "moon",
     "frame",
     "detail",
+    "link",
 ]
 
 
-def _row_record(r: PlanRow) -> dict[str, object]:
+def _row_record(r: PlanRow, link: str = "") -> dict[str, object]:
     """Map a PlanRow onto the historical CSV/table column names."""
     d = asdict(r)
     return {
@@ -55,6 +56,7 @@ def _row_record(r: PlanRow) -> dict[str, object]:
         "moon": d["moon"],
         "frame": d["frame"],
         "detail": d["detail"],
+        "link": link,
     }
 
 
@@ -105,14 +107,27 @@ def print_notes(plan: NightPlan, top: int) -> None:
             print(f"  - {r.name:<22} ({r.frame}) -> {r.detail}")
 
 
-def write_csv(plan: NightPlan, path: str | Path) -> None:
-    """Write all ranked rows to a CSV file (historical column layout)."""
+def write_csv(plan: NightPlan, path: str | Path, link_site: str = "simbad") -> None:
+    """Write all ranked rows to a CSV file (historical column layout).
+
+    Parameters
+    ----------
+    plan : NightPlan
+        The plan to export.
+    path : str or pathlib.Path
+        Output CSV file.
+    link_site : str
+        Provider for the per-target ``link`` column (see
+        :data:`harp.links.LINK_PROVIDERS`).
+    """
+    from harp.links import target_link
+
     path = Path(path)
     with path.open("w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=_CSV_FIELDS)
         writer.writeheader()
         for r in plan.rows:
-            writer.writerow(_row_record(r))
+            writer.writerow(_row_record(r, link=target_link(plan.targets[r.index], link_site)))
     print(f"\nCandidates: {len(plan.rows)} -> {path}")
 
 

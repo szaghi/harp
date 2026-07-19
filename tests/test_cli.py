@@ -84,8 +84,9 @@ def test_plan_smoke(runner: CliRunner, tmp_path: Path) -> None:
     header = csv_out.read_text().splitlines()[0]
     assert (
         header
-        == "object,score,kind,const,mag,hours,cont,window,altmax,az,peak,moonsep,moon,frame,detail"
+        == "object,score,kind,const,mag,hours,cont,window,altmax,az,peak,moonsep,moon,frame,detail,link"
     )
+    assert "simbad.cds.unistra.fr" in csv_out.read_text()
     # August night from the balcony: Cygnus/Cepheus nebulae must be in
     assert "IC1396 Elephant Trunk" in result.output
 
@@ -154,6 +155,43 @@ def test_plan_with_user_targets(runner: CliRunner, tmp_path: Path) -> None:
     )
     assert result.exit_code == 0, result.output
     assert "My Cygnus Field" in result.output
+
+
+def test_plan_link_site_wikipedia(runner: CliRunner, tmp_path: Path) -> None:
+    out = tmp_path / "t.csv"
+    result = runner.invoke(
+        app,
+        [
+            "plan",
+            "2026-08-15",
+            "--config",
+            str(EXAMPLES / "sites.yaml"),
+            "--no-pyongc",
+            "--no-plot",
+            "--link-site",
+            "wikipedia",
+            "--csv",
+            str(out),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "en.wikipedia.org" in out.read_text()
+
+
+def test_plan_bad_link_site_fails(runner: CliRunner) -> None:
+    result = runner.invoke(app, ["plan", "--link-site", "myspace"])
+    assert result.exit_code == 1
+    assert "unknown link site" in result.output
+
+
+def test_info_command(runner: CliRunner) -> None:
+    result = runner.invoke(app, ["info", "IC1396", "--config", str(EXAMPLES / "sites.yaml")])
+    assert result.exit_code == 0, result.output
+    assert "IC1396 Elephant Trunk" in result.output
+    assert "narrowband-friendly" in result.output
+    assert "mosaic 2x3" in result.output
+    assert "simbad.cds.unistra.fr" in result.output
+    assert "aladin.cds.unistra.fr" in result.output
 
 
 def test_mosaic_command(runner: CliRunner, tmp_path: Path) -> None:

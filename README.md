@@ -37,7 +37,7 @@
 </tr>
 <tr>
 <td><b>🔭 Offline catalogues + your own</b><br><sub>Curated large emission nebulae (deliberately <em>not</em> magnitude-filtered), full Messier/NGC/IC via <a href="https://github.com/mattiaverga/PyOngc">pyongc</a> (<code>--catalogs M,NGC,IC</code>), and a user targets file that overrides everything (<code>--targets</code>). Cross-identification dedup: M42 and NGC1976 are one object, M43 stays its own. No network at run time.</sub></td>
-<td><b>📈 Table, CSV, charts</b><br><sub>A ranked terminal table, a CSV for your session log, and altitude charts with the horizon obstruction band and the usable window overlaid — one command, all artifacts, all greppable and scriptable.</sub></td>
+<td><b>📈 Table, CSV, charts, links</b><br><sub>A ranked terminal table, a CSV for your session log — each target with an informative web link (SIMBAD, Wikipedia, AstroBin, or Aladin, built offline) — altitude charts with the horizon band overlaid, and <code>harp info TARGET</code> for details on demand.</sub></td>
 </tr>
 </table>
 </div>

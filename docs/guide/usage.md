@@ -99,6 +99,18 @@ headers — N.I.N.A. has a known importer bug that reads a bare
 `Right Ascension` column for the declination too, which these files
 therefore never contain.
 
+## Target details
+
+```bash
+harp info M27
+harp info "Elephant Trunk" --catalogs M,NGC,IC
+```
+
+Prints everything HARP knows offline — designations, type (with the
+narrowband verdict), coordinates, magnitude, size, framing for your rig
+with the mosaic detail suggestion — plus the informative links for all
+four providers.
+
 ## Reading the output
 
 - **score** — composite desirability, 0-100: weighted geometric mean of the
@@ -121,6 +133,13 @@ therefore never contain.
   reflection nebulae keep the broadband penalty.
 - **frame** — `1 frame` or `mosaic NxM` for your rig (15% overlap).
 - **detail** — for mosaic targets, an interesting crop that fits one frame.
+- **link** (CSV only) — an informative web page per target, built offline
+  from the designation. Provider via `--link-site` (or config `link_site`):
+  `simbad` (default — type, distance, magnitudes, bibliography; resolves
+  essentially every designation), `wikipedia` (best prose and images, but
+  faint objects 404), `astrobin` (community image search), `aladin` (survey
+  imagery by coordinates). Custom targets without a designation always get
+  an Aladin coordinate link — a working link beats a guessed 404.
 
 The chart shows per target: altitude (blue), Moon (orange), the grey
 obstruction band, and the usable window in green.
