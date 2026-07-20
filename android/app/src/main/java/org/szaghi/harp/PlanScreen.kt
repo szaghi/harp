@@ -14,11 +14,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -57,8 +63,46 @@ fun PlanScreen(vm: PlanViewModel) {
             Spacer(Modifier.height(4.dp))
         }
 
+        // client-side filters: instant re-filtering, no re-planning
+        var emissionMode by remember { mutableStateOf(0) } // 0 all, 1 emission, 2 non
+        val classFilter = remember { mutableStateListOf<String>() }
+        if (vm.rows.isNotEmpty()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FilterChip(
+                    selected = emissionMode == 1,
+                    onClick = { emissionMode = if (emissionMode == 1) 0 else 1 },
+                    label = { Text("emission") },
+                )
+                FilterChip(
+                    selected = emissionMode == 2,
+                    onClick = { emissionMode = if (emissionMode == 2) 0 else 2 },
+                    label = { Text("non-em") },
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf("nebula", "galaxy", "cluster", "planetary").forEach { c ->
+                    FilterChip(
+                        selected = c in classFilter,
+                        onClick = {
+                            if (c in classFilter) classFilter.remove(c) else classFilter.add(c)
+                        },
+                        label = { Text(c) },
+                    )
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+        }
+        val shown = vm.rows.filter { r ->
+            (classFilter.isEmpty() || r.kindClass in classFilter) &&
+                when (emissionMode) {
+                    1 -> r.narrowband
+                    2 -> !r.narrowband
+                    else -> true
+                }
+        }
+
         LazyColumn(Modifier.weight(1f)) {
-            items(vm.rows) { r ->
+            items(shown) { r ->
                 Column(
                     Modifier
                         .fillMaxWidth()

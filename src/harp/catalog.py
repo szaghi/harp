@@ -20,10 +20,13 @@ from harp.errors import CatalogError
 log = logging.getLogger(__name__)
 
 __all__ = [
+    "FILTER_TOKENS",
     "PYONGC_CATALOGS",
     "Target",
     "build_targets",
+    "filter_targets",
     "find_targets",
+    "kind_class",
     "suggest_detail",
     "user_targets",
 ]
@@ -367,6 +370,70 @@ def user_targets(path: str | Path) -> list[Target]:
             )
         except (KeyError, ValueError) as e:
             raise CatalogError(f"bad entry #{n} in {path}: {e}") from e
+    return out
+
+
+_CLASS_TOKENS = frozenset({"nebula", "galaxy", "cluster", "planetary", "star", "other"})
+FILTER_TOKENS = _CLASS_TOKENS | {"emission", "non-emission"}
+
+
+def kind_class(kind: str) -> str:
+    """Collapse a raw catalog kind into the filter taxonomy.
+
+    One of ``nebula``, ``galaxy``, ``cluster``, ``planetary``, ``star``,
+    ``other``. Emission-ness is NOT a class: it is the orthogonal
+    ``narrowband`` flag.
+    """
+    k = kind.lower()
+    if "galax" in k:
+        return "galaxy"
+    if "planetary" in k:
+        return "planetary"
+    if "nebula" in k or "hii" in k or "supernova" in k:
+        # 'Star cluster + Nebula' lands here on purpose: photographically
+        # the nebulosity is the subject
+        return "nebula"
+    if "cluster" in k or "association" in k:
+        return "cluster"
+    if "star" in k:
+        return "star"
+    return "other"
+
+
+def filter_targets(targets: list[Target], spec: str | list[str]) -> list[Target]:
+    """Filter targets by class and emission tokens.
+
+    Class tokens (``nebula``/``galaxy``/``cluster``/``planetary``/``star``/
+    ``other``) are OR-ed; ``emission``/``non-emission`` AND on top of them.
+    ``'galaxy,cluster'`` keeps either; ``'emission,nebula'`` keeps emission
+    nebulae only.
+
+    Raises
+    ------
+    CatalogError
+        On an unknown token.
+    """
+    raw = spec.split(",") if isinstance(spec, str) else list(spec)
+    tokens = {t.strip().lower() for t in raw if t.strip()}
+    unknown = tokens - FILTER_TOKENS
+    if unknown:
+        raise CatalogError(
+            f"unknown filter {', '.join(sorted(unknown))!s}: "
+            f"choose from {', '.join(sorted(FILTER_TOKENS))}"
+        )
+    classes = tokens & _CLASS_TOKENS
+    want_emission = "emission" in tokens
+    want_non = "non-emission" in tokens
+
+    out = []
+    for t in targets:
+        if classes and kind_class(t.kind) not in classes:
+            continue
+        if want_emission and not want_non and not t.narrowband:
+            continue
+        if want_non and not want_emission and t.narrowband:
+            continue
+        out.append(t)
     return out
 
 

@@ -129,7 +129,15 @@ def plan(
     top: int | None = typer.Option(None, help="Rows shown on screen."),
     sort: str = typer.Option(
         "score",
-        help="Ranking: 'score' (composite desirability) or 'hours' (historical order).",
+        help="Ranking: 'score' (desirability), 'hours' (historical order), "
+        "'alt' (peak altitude), or 'name'.",
+    ),
+    target_filter: str | None = typer.Option(
+        None,
+        "--filter",
+        help="Comma-separated target filter: class tokens (nebula, galaxy, "
+        "cluster, planetary, star, other) are OR-ed; emission/non-emission "
+        "AND on top. E.g. 'galaxy,cluster' or 'emission,nebula'.",
     ),
     link_site: str | None = typer.Option(
         None,
@@ -168,8 +176,8 @@ def plan(
     from harp.planner import Site, plan_night
     from harp.report import plot_charts, print_notes, print_report, write_csv
 
-    if sort not in ("score", "hours"):
-        raise _fail(ValueError(f"unknown sort {sort!r}: choose 'score' or 'hours'"))
+    if sort not in ("score", "hours", "alt", "name"):
+        raise _fail(ValueError(f"unknown sort {sort!r}: choose 'score', 'hours', 'alt', or 'name'"))
     try:
         cfg_path = find_config(config)
         cfg = load_config(cfg_path) if cfg_path else {}
@@ -216,6 +224,11 @@ def plan(
             mag_limit=pick(mag_limit, "mag_limit", cfg, DEFAULTS.mag_limit),
             targets_file=targets_path,
         )
+        filter_spec = pick(target_filter, "filter", cfg, None)
+        if filter_spec:
+            from harp.catalog import filter_targets
+
+            target_list = filter_targets(target_list, filter_spec)
         the_plan = plan_night(
             site=the_site,
             rig=rig,

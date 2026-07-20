@@ -127,6 +127,63 @@ def test_plan_bad_sort_fails(runner: CliRunner) -> None:
     assert "unknown sort" in result.output
 
 
+def test_plan_filter_and_sort_name(runner: CliRunner, tmp_path: Path) -> None:
+    import csv as csv_mod
+
+    out = tmp_path / "f.csv"
+    result = runner.invoke(
+        app,
+        [
+            "plan",
+            "2026-08-15",
+            "--config",
+            str(EXAMPLES / "sites.yaml"),
+            "--filter",
+            "emission,nebula",
+            "--sort",
+            "name",
+            "--no-plot",
+            "--csv",
+            str(out),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    with out.open() as f:
+        rows = list(csv_mod.DictReader(f))
+    assert rows
+    # emission nebulae only: every row narrowband-friendly kinds
+    assert all("Galaxy" not in r["kind"] and "Cluster" not in r["kind"] for r in rows)
+    names = [r["object"].lower() for r in rows]
+    assert names == sorted(names)  # --sort name is alphabetical ascending
+
+
+def test_plan_filter_galaxy_excludes_nebulae(runner: CliRunner, tmp_path: Path) -> None:
+    out = tmp_path / "g.csv"
+    result = runner.invoke(
+        app,
+        [
+            "plan",
+            "2026-08-15",
+            "--config",
+            str(EXAMPLES / "sites.yaml"),
+            "--filter",
+            "galaxy",
+            "--no-plot",
+            "--csv",
+            str(out),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    content = out.read_text()
+    assert "IC1396" not in content  # the nebulae are gone
+
+
+def test_plan_bad_filter_fails(runner: CliRunner) -> None:
+    result = runner.invoke(app, ["plan", "--filter", "quasar"])
+    assert result.exit_code == 1
+    assert "unknown filter" in result.output
+
+
 def test_plan_with_user_targets(runner: CliRunner, tmp_path: Path) -> None:
     f = tmp_path / "my.yaml"
     f.write_text(

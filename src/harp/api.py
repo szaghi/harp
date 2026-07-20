@@ -10,7 +10,15 @@ from __future__ import annotations
 
 from typing import Any
 
-from harp.catalog import Target, build_targets, find_targets, user_targets
+from harp.catalog import (
+    FILTER_TOKENS,
+    Target,
+    build_targets,
+    filter_targets,
+    find_targets,
+    kind_class,
+    user_targets,
+)
 from harp.horizon import Horizon, build_profile, validate_profile, write_hrz
 from harp.links import LINK_PROVIDERS, target_link
 from harp.mosaic import Panel, mosaic_panels
@@ -21,6 +29,7 @@ API_VERSION = "1"
 
 __all__ = [
     "API_VERSION",
+    "FILTER_TOKENS",
     "Horizon",
     "NightPlan",
     "Panel",
@@ -31,8 +40,10 @@ __all__ = [
     "build_profile",
     "build_targets",
     "desirability",
+    "filter_targets",
     "find_targets",
     "info_to_dict",
+    "kind_class",
     "mosaic_panels",
     "panels_to_dict",
     "parse_sensor",
@@ -68,6 +79,7 @@ def _row_to_dict(r: PlanRow, plan: NightPlan, link_site: str) -> dict[str, Any]:
         "name": r.name,
         "score": r.score,
         "kind": r.kind,
+        "class": kind_class(r.kind),
         "const": r.const,
         "mag": r.mag,
         "hours": r.hours,

@@ -61,6 +61,21 @@ Duplicates across sources are detected by shared catalog designation
 (OpenNGC cross-ids: M42 == NGC1976), with a tight 2-arcmin positional
 fallback — close neighbours like M43 stay distinct.
 
+## Filtering and ordering
+
+```bash
+harp plan --filter galaxy,cluster        # galaxies OR clusters
+harp plan --filter emission,nebula       # emission nebulae only
+harp plan --filter non-emission          # broadband program (galaxy season)
+harp plan --sort alt                     # rank by peak altitude
+harp plan --sort name                    # alphabetical
+```
+
+Class tokens (`nebula`, `galaxy`, `cluster`, `planetary`, `star`, `other`)
+are OR-ed together; `emission`/`non-emission` AND on top of them. Config
+keys: `filter`, `sort`. Sorting accepts `score` (default), `hours`
+(historical order), `alt`, `name`.
+
 ## Mosaic panel coordinates
 
 When the plan says `mosaic NxM`, get the actual per-panel centers:

@@ -251,8 +251,9 @@ def plan_night(
     horizon_label : str
         Horizon description for the report header (e.g. the .hrz filename).
     sort : str
-        Row ranking: ``'score'`` (composite desirability, default) or
-        ``'hours'`` (total usable hours, the historical order).
+        Row ranking: ``'score'`` (composite desirability, default),
+        ``'hours'`` (total usable hours, the historical order),
+        ``'alt'`` (peak altitude), or ``'name'`` (alphabetical).
 
     Returns
     -------
@@ -325,8 +326,13 @@ def plan_night(
                 ),
             )
         )
-    key = (lambda r: r.hours) if sort == "hours" else (lambda r: r.score)
-    rows.sort(key=key, reverse=True)
+    keys = {
+        "score": lambda r: r.score,
+        "hours": lambda r: r.hours,
+        "alt": lambda r: r.alt_max,
+        "name": lambda r: r.name.lower(),
+    }
+    rows.sort(key=keys.get(sort, keys["score"]), reverse=sort != "name")
 
     return NightPlan(
         site=site,

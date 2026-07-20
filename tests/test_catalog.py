@@ -13,6 +13,8 @@ from harp.catalog import (
     build_targets,
     curated_nebulae,
     dedup,
+    filter_targets,
+    kind_class,
     pyongc_targets,
     suggest_detail,
     user_targets,
@@ -144,6 +146,47 @@ def test_user_targets_errors(tmp_path: Path) -> None:
     empty.write_text("something_else: 1\n")
     with pytest.raises(CatalogError, match="no 'targets' list"):
         user_targets(empty)
+
+
+def test_kind_class_taxonomy() -> None:
+    assert kind_class("Galaxy") == "galaxy"
+    assert kind_class("Galaxy Pair") == "galaxy"
+    assert kind_class("Planetary Nebula") == "planetary"
+    assert kind_class("Nebula") == "nebula"
+    assert kind_class("HII Ionized region") == "nebula"
+    assert kind_class("Supernova remnant") == "nebula"
+    assert kind_class("Star cluster + Nebula") == "nebula"  # nebulosity is the subject
+    assert kind_class("Reflection Nebula") == "nebula"
+    assert kind_class("Open Cluster") == "cluster"
+    assert kind_class("Globular Cluster") == "cluster"
+    assert kind_class("Association of stars") == "cluster"
+    assert kind_class("Nova star") == "star"
+    assert kind_class("Object of other/unknown type") == "other"
+
+
+def test_filter_targets_semantics() -> None:
+    targets = build_targets()  # curated + Messier
+    galaxies = filter_targets(targets, "galaxy")
+    assert galaxies
+    assert all(kind_class(t.kind) == "galaxy" for t in galaxies)
+
+    either = filter_targets(targets, "galaxy,cluster")
+    assert len(either) > len(galaxies)  # OR semantics between classes
+
+    emission_neb = filter_targets(targets, "emission,nebula")
+    assert emission_neb
+    assert all(t.narrowband and kind_class(t.kind) == "nebula" for t in emission_neb)
+
+    non_em = filter_targets(targets, "non-emission")
+    assert all(not t.narrowband for t in non_em)
+
+    # both emission tokens -> no emission constraint
+    assert len(filter_targets(targets, "emission,non-emission")) == len(targets)
+
+
+def test_filter_targets_unknown_token() -> None:
+    with pytest.raises(CatalogError, match="unknown filter"):
+        filter_targets(curated_nebulae(), "quasar")
 
 
 def test_build_targets_user_priority(tmp_path: Path) -> None:

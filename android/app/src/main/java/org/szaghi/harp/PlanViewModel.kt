@@ -28,6 +28,8 @@ data class PlanRowUi(
     val moon: String,
     val frame: String,
     val link: String,
+    val kindClass: String,
+    val narrowband: Boolean,
 )
 
 /** Runs the shared harp planner on-device and holds the ranked result. */
@@ -134,6 +136,8 @@ class PlanViewModel(app: Application) : AndroidViewModel(app) {
                             moon = r.getString("moon"),
                             frame = r.getString("frame"),
                             link = r.getString("link"),
+                            kindClass = r.optString("class", "other"),
+                            narrowband = r.optBoolean("narrowband", false),
                         )
                     )
                 }
