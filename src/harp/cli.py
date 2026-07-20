@@ -469,6 +469,22 @@ def horizon(
         "Use 0 if the measurements are already in true azimuth.",
     ),
     preview: str | None = typer.Option(None, help="Also save a polar preview PNG to this path."),
+    save_site: str | None = typer.Option(
+        None,
+        "--save-site",
+        help="Also save the built horizon into a named site in the config "
+        "(created or updated); site geo can be supplied with --lat/--lon/--tz.",
+    ),
+    config: str | None = typer.Option(
+        None, help="Config file for --save-site (default: ~/.config/harp/sites.yaml)."
+    ),
+    lat: float | None = typer.Option(None, help="Site latitude for --save-site (deg)."),
+    lon: float | None = typer.Option(None, help="Site longitude for --save-site (deg East)."),
+    elev: float | None = typer.Option(None, help="Site elevation for --save-site (m)."),
+    tz: str | None = typer.Option(None, help="Site IANA timezone for --save-site."),
+    make_default: bool = typer.Option(
+        False, "--default", help="With --save-site, also make it the default site."
+    ),
 ) -> None:
     """Build a N.I.N.A.-compatible .hrz horizon file from measured vertices.
 
@@ -500,6 +516,158 @@ def horizon(
         if preview:
             preview_profile(profile, preview)
             print(f"Preview saved: {preview}")
+        if save_site:
+            _save_horizon_to_site(
+                save_site, out.read_text(), config, lat, lon, elev, tz, make_default
+            )
         print("Load it in N.I.N.A.: Options > General > Astrometry > Horizon.")
     except HarpError as e:
         raise _fail(e) from None
+
+
+def _save_horizon_to_site(
+    name: str,
+    hrz_content: str,
+    config: str | None,
+    lat: float | None,
+    lon: float | None,
+    elev: float | None,
+    tz: str | None,
+    make_default: bool,
+) -> None:
+    """Persist a built horizon into a (new or existing) named site."""
+    from harp.sites import SiteEntry, SitesConfig, slugify
+
+    store = SitesConfig.load(config, create=True)
+    slug = slugify(name)
+    if slug in store.names():
+        base = store.get(slug)
+        entry = SiteEntry(
+            name=slug,
+            label=base.label,
+            lat=pick(lat, "", {}, base.lat),
+            lon=pick(lon, "", {}, base.lon),
+            elev=pick(elev, "", {}, base.elev),
+            tz=pick(tz, "", {}, base.tz),
+        )
+    else:
+        if lat is None or lon is None:
+            raise _fail(
+                ValueError(f"new site '{slug}' needs --lat and --lon (and ideally --tz)")
+            )
+        entry = SiteEntry(
+            name=slug, label=name, lat=lat, lon=lon, elev=elev or 0.0, tz=tz or "UTC"
+        )
+    store.upsert(entry, hrz_content=hrz_content, make_default=make_default)
+    store.save()
+    tag = " (default)" if store.default_name() == slug else ""
+    print(f"Saved horizon into site '{slug}'{tag} in {store.path}")
+
+
+sites_app = typer.Typer(name="sites", help="Manage saved observing sites (multi-location).")
+app.add_typer(sites_app)
+
+
+@sites_app.command("list")
+def sites_list(
+    config: str | None = typer.Option(
+        None, help="Config file (default: auto-detected, then ~/.config/harp/sites.yaml)."
+    ),
+) -> None:
+    """List saved sites; the default is marked with '*'."""
+    from harp.sites import SitesConfig, default_config_path
+
+    try:
+        # explicit path wins; else auto-detect a readable config; else the
+        # user-level default (created empty on first write).
+        cfg_path = Path(config) if config else (find_config(None) or default_config_path())
+        store = SitesConfig.load(cfg_path, create=True)
+    except HarpError as e:
+        raise _fail(e) from None
+    print(f"Config: {store.path}")
+    names = store.names()
+    if not names:
+        print("(no sites defined — add one with 'harp sites add')")
+        return
+    default = store.default_name()
+    for n in names:
+        site = store.get(n)
+        hp = store.hrz_path(site)
+        has = "hrz" if hp and hp.exists() else "no-hrz"
+        mark = "*" if n == default else " "
+        print(f"{mark} {n:<16} {site.label:<24} {site.lat:8.3f},{site.lon:8.3f}  {site.tz}  [{has}]")
+
+
+@sites_app.command("add")
+def sites_add(
+    name: str = typer.Argument(..., help="Site name (slugified)."),
+    lat: float = typer.Option(..., help="Latitude (deg)."),
+    lon: float = typer.Option(..., help="Longitude (deg, East positive)."),
+    elev: float = typer.Option(0.0, help="Elevation (m)."),
+    tz: str = typer.Option("UTC", help="IANA timezone, e.g. Europe/Rome."),
+    label: str | None = typer.Option(None, help="Human-readable label (default: the name)."),
+    hrz: str | None = typer.Option(
+        None, help="Existing .hrz file to copy into the site's config directory."
+    ),
+    config: str | None = typer.Option(
+        None, help="Config file (default: ~/.config/harp/sites.yaml)."
+    ),
+    make_default: bool = typer.Option(False, "--default", help="Make this the default site."),
+) -> None:
+    """Add or update a saved site."""
+    from harp.sites import SiteEntry, SitesConfig, slugify
+
+    try:
+        store = SitesConfig.load(config, create=True)
+        slug = slugify(name)
+        entry = SiteEntry(
+            name=slug, label=label or name, lat=lat, lon=lon, elev=elev, tz=tz
+        )
+        content = Path(hrz).read_text() if hrz else None
+        if hrz and not Path(hrz).exists():
+            raise _fail(FileNotFoundError(f".hrz file not found: {hrz}"))
+        store.upsert(entry, hrz_content=content, make_default=make_default)
+        store.save()
+    except HarpError as e:
+        raise _fail(e) from None
+    tag = " (default)" if store.default_name() == slug else ""
+    print(f"Site '{slug}'{tag} saved in {store.path}")
+
+
+@sites_app.command("remove")
+def sites_remove(
+    name: str = typer.Argument(..., help="Site name to remove."),
+    config: str | None = typer.Option(
+        None, help="Config file (default: ~/.config/harp/sites.yaml)."
+    ),
+    keep_hrz: bool = typer.Option(False, "--keep-hrz", help="Do not delete the site's .hrz file."),
+) -> None:
+    """Remove a saved site (and its .hrz unless --keep-hrz)."""
+    from harp.sites import SitesConfig
+
+    try:
+        store = SitesConfig.load(config)
+        store.remove(name, delete_hrz=not keep_hrz)
+        store.save()
+    except HarpError as e:
+        raise _fail(e) from None
+    print(f"Removed site '{name}'. Default is now: {store.default_name() or '(none)'}")
+
+
+@sites_app.command("set-default")
+def sites_set_default(
+    name: str = typer.Argument(..., help="Site name to select as default."),
+    config: str | None = typer.Option(
+        None, help="Config file (default: ~/.config/harp/sites.yaml)."
+    ),
+) -> None:
+    """Select the default site (used when --site is omitted)."""
+    from harp.sites import SitesConfig
+
+    try:
+        store = SitesConfig.load(config)
+        store.set_default(name)
+        store.save()
+    except HarpError as e:
+        raise _fail(e) from None
+    print(f"Default site is now '{name}'.")

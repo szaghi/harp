@@ -17,7 +17,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
-import java.io.File
 import java.util.TimeZone
 
 data class PlanRowUi(
@@ -43,6 +42,7 @@ class PlanViewModel(app: Application) : AndroidViewModel(app) {
     // per-run input; everything else lives in Settings (DataStore)
     var date by mutableStateOf("")
     private val settingsRepo = SettingsRepo(app)
+    private val sitesRepo = SitesRepo(app)
 
     private fun lastKnownLocation(): Triple<Double, Double, Double>? {
         val ctx = getApplication<Application>()
@@ -63,32 +63,57 @@ class PlanViewModel(app: Application) : AndroidViewModel(app) {
         return Triple(loc.latitude, loc.longitude, if (loc.hasAltitude()) loc.altitude else 0.0)
     }
 
-    /** The wizard's last exported horizon, if any: capture then plan through it. */
-    private fun wizardHorizonPath(): String {
-        val f = File(getApplication<Application>().cacheDir, "exports/horizon.hrz")
-        return if (f.exists()) f.absolutePath else ""
-    }
-
     fun runPlan() {
-        val loc = lastKnownLocation()
-        if (loc == null) {
-            error = "no location fix - grant location and get a GPS fix in the wizard tab"
-            return
-        }
         running = true
         error = ""
         rows.clear()
         viewModelScope.launch {
             val s = settingsRepo.flow.first()
-            summary = "planning (${s.catalogs})..."
+
+            // Resolve the observing location: the selected saved site (its
+            // stored coords + its .hrz), else the store default, else a live
+            // GPS fix as last resort. This is what makes a fixed balcony
+            // reproducible without a fresh fix each night.
+            val (_, siteList) = withContext(Dispatchers.IO) { sitesRepo.list() }
+            val chosen = siteList.firstOrNull { it.name == s.selectedSite }
+                ?: siteList.firstOrNull { it.isDefault }
+
+            val lat: Double
+            val lon: Double
+            val elev: Double
+            val tz: String
+            val hrzPath: String
+            if (chosen != null) {
+                lat = chosen.lat
+                lon = chosen.lon
+                elev = chosen.elev
+                tz = chosen.tz
+                hrzPath = withContext(Dispatchers.IO) { sitesRepo.hrzPathFor(chosen.name) }
+                summary = "planning ${chosen.label} (${s.catalogs})..."
+            } else {
+                val loc = lastKnownLocation()
+                if (loc == null) {
+                    error = "no saved site and no GPS fix - save a site in the " +
+                        "Horizon tab, or grant location"
+                    running = false
+                    return@launch
+                }
+                lat = loc.first
+                lon = loc.second
+                elev = loc.third
+                tz = TimeZone.getDefault().id
+                hrzPath = ""
+                summary = "planning current location (${s.catalogs})..."
+            }
+
             val result = withContext(Dispatchers.IO) {
                 val request = JSONObject().apply {
-                    put("lat", loc.first)
-                    put("lon", loc.second)
-                    put("elev", loc.third)
-                    put("tz", TimeZone.getDefault().id)
+                    put("lat", lat)
+                    put("lon", lon)
+                    put("elev", elev)
+                    put("tz", tz)
                     put("date", date.trim())
-                    put("hrz_path", wizardHorizonPath())
+                    put("hrz_path", hrzPath)
                     put("focal_mm", s.focal.toDouble())
                     put("sensor", s.sensor)
                     put("overlap", s.overlap.toDouble())

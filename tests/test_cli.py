@@ -294,3 +294,68 @@ def test_plan_bad_catalogs_fails(runner: CliRunner, tmp_path: Path) -> None:
     )
     assert result.exit_code == 1
     assert "unknown catalog" in result.output
+
+
+def test_sites_add_list_setdefault_remove(runner: CliRunner, tmp_path: Path) -> None:
+    cfg = str(tmp_path / "sites.yaml")
+    r = runner.invoke(
+        app,
+        ["sites", "add", "Balcony", "--lat", "41.7", "--lon", "12.9",
+         "--tz", "Europe/Rome", "--config", cfg, "--default"],
+    )
+    assert r.exit_code == 0, r.output
+    assert "balcony" in r.output  # slugified
+
+    r = runner.invoke(
+        app,
+        ["sites", "add", "Mountain", "--lat", "46.5", "--lon", "11.35", "--config", cfg],
+    )
+    assert r.exit_code == 0, r.output
+
+    r = runner.invoke(app, ["sites", "list", "--config", cfg])
+    assert r.exit_code == 0, r.output
+    assert "* balcony" in r.output  # default marked
+    assert "mountain" in r.output
+
+    r = runner.invoke(app, ["sites", "set-default", "mountain", "--config", cfg])
+    assert r.exit_code == 0, r.output
+    r = runner.invoke(app, ["sites", "list", "--config", cfg])
+    assert "* mountain" in r.output
+
+    r = runner.invoke(app, ["sites", "remove", "mountain", "--config", cfg])
+    assert r.exit_code == 0, r.output
+    r = runner.invoke(app, ["sites", "list", "--config", cfg])
+    assert "* balcony" in r.output  # default fell back
+
+
+def test_sites_remove_unknown_fails(runner: CliRunner, tmp_path: Path) -> None:
+    cfg = str(tmp_path / "sites.yaml")
+    runner.invoke(app, ["sites", "add", "a", "--lat", "1", "--lon", "2", "--config", cfg])
+    r = runner.invoke(app, ["sites", "remove", "ghost", "--config", cfg])
+    assert r.exit_code == 1
+    assert "not found" in r.output
+
+
+def test_horizon_save_site(runner: CliRunner, tmp_path: Path) -> None:
+    pts = tmp_path / "pts.yaml"
+    pts.write_text("declination: 0.0\npoints:\n  - [90, 20]\n  - [180, 35]\n  - [270, 15]\n")
+    cfg = str(tmp_path / "sites.yaml")
+    r = runner.invoke(
+        app,
+        ["horizon", str(pts), "--save-site", "Balcony", "--config", cfg,
+         "--lat", "41.7", "--lon", "12.9", "--tz", "Europe/Rome", "--default"],
+    )
+    assert r.exit_code == 0, r.output
+    assert (tmp_path / "balcony.hrz").exists()
+    r = runner.invoke(app, ["sites", "list", "--config", cfg])
+    assert "* balcony" in r.output
+    assert "[hrz]" in r.output
+
+
+def test_horizon_save_new_site_needs_coords(runner: CliRunner, tmp_path: Path) -> None:
+    pts = tmp_path / "pts.yaml"
+    pts.write_text("points:\n  - [90, 20]\n  - [270, 15]\n")
+    cfg = str(tmp_path / "sites.yaml")
+    r = runner.invoke(app, ["horizon", str(pts), "--save-site", "New", "--config", cfg])
+    assert r.exit_code == 1
+    assert "needs --lat and --lon" in r.output

@@ -24,8 +24,10 @@ from harp.links import LINK_PROVIDERS, target_link
 from harp.mosaic import Panel, mosaic_panels
 from harp.optics import Rig, parse_sensor
 from harp.planner import NightPlan, PlanRow, Site, desirability, plan_night
+from harp.sites import SiteEntry, SitesConfig, default_config_path, slugify
 
-API_VERSION = "1"
+# 2: added the multi-site store (SitesConfig/SiteEntry) and site JSON helpers.
+API_VERSION = "2"
 
 __all__ = [
     "API_VERSION",
@@ -36,9 +38,12 @@ __all__ = [
     "PlanRow",
     "Rig",
     "Site",
+    "SiteEntry",
+    "SitesConfig",
     "Target",
     "build_profile",
     "build_targets",
+    "default_config_path",
     "desirability",
     "filter_targets",
     "find_targets",
@@ -49,12 +54,40 @@ __all__ = [
     "parse_sensor",
     "plan_night",
     "plan_to_dict",
+    "site_to_dict",
+    "slugify",
     "target_link",
     "target_to_dict",
     "user_targets",
     "validate_profile",
     "write_hrz",
 ]
+
+
+def site_to_dict(site: SiteEntry, *, has_hrz: bool = False, is_default: bool = False) -> dict[str, Any]:
+    """JSON-safe view of a saved site, for the app's site list.
+
+    Parameters
+    ----------
+    site : SiteEntry
+        The stored site.
+    has_hrz : bool
+        Whether the site's ``.hrz`` file actually exists on disk (the caller
+        resolves this against the config dir).
+    is_default : bool
+        Whether this site is the selected default.
+    """
+    return {
+        "name": site.name,
+        "label": site.label,
+        "lat": site.lat,
+        "lon": site.lon,
+        "elev": site.elev,
+        "tz": site.tz,
+        "hrz": site.hrz,
+        "has_hrz": has_hrz,
+        "default": is_default,
+    }
 
 
 def target_to_dict(t: Target) -> dict[str, Any]:

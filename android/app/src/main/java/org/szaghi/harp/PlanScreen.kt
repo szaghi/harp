@@ -20,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -36,10 +37,34 @@ import androidx.compose.ui.unit.dp
  * Tap a target to open its info link (SIMBAD) in the browser.
  */
 @Composable
-fun PlanScreen(vm: PlanViewModel) {
+fun PlanScreen(vm: PlanViewModel, sitesVm: SitesViewModel) {
     val context = LocalContext.current
+    val selected by sitesVm.selectedName.collectAsState()
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
+        // Site picker: which saved observatory to plan for. The selection is
+        // persisted; an empty store falls through to a live GPS fix.
+        if (sitesVm.sites.isEmpty()) {
+            Text(
+                "No saved site — planning uses your current GPS location. " +
+                    "Build and Save a horizon in the Horizon tab to pin an observatory.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        } else {
+            Text("Observing site", style = MaterialTheme.typography.labelMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                sitesVm.sites.forEach { site ->
+                    val active = site.name == selected ||
+                        (selected.isEmpty() && site.isDefault)
+                    FilterChip(
+                        selected = active,
+                        onClick = { sitesVm.select(site.name) },
+                        label = { Text(site.label + if (site.hasHrz) "" else " (flat)") },
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
         OutlinedTextField(
             value = vm.date,
             onValueChange = { vm.date = it },

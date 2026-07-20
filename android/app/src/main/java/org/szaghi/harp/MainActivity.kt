@@ -11,6 +11,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -30,6 +31,9 @@ class MainActivity : ComponentActivity() {
 fun HarpApp() {
     var tab by remember { mutableIntStateOf(0) }
     val titles = listOf("Plan", "Horizon", "Settings")
+    // One sites store shared by the Plan picker and the Horizon Save button.
+    val sitesVm = viewModel<SitesViewModel>()
+    LaunchedEffect(Unit) { sitesVm.refresh() }
     Scaffold { padding ->
         Column(Modifier.padding(padding)) {
             TabRow(selectedTabIndex = tab) {
@@ -38,8 +42,8 @@ fun HarpApp() {
                 }
             }
             when (tab) {
-                0 -> PlanScreen(viewModel<PlanViewModel>())
-                1 -> HorizonScreen(viewModel<HorizonViewModel>())
+                0 -> PlanScreen(viewModel<PlanViewModel>(), sitesVm)
+                1 -> HorizonScreen(viewModel<HorizonViewModel>(), sitesVm)
                 2 -> SettingsScreen(viewModel<SettingsViewModel>())
             }
         }

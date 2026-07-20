@@ -22,6 +22,35 @@ harp plan 2026-08-15 \
 default. Without a `.hrz` (neither CLI nor config), a flat 0-degree horizon
 is assumed.
 
+## Saved sites (multiple observatories)
+
+A *site* bundles a location and its horizon: label, lat/lon/elev, timezone,
+and a `.hrz` mask. Manage them with `harp sites`; the default is used when
+`--site` is omitted.
+
+```bash
+harp sites add balcony --lat 41.738 --lon 12.889 --elev 300 \
+    --tz Europe/Rome --label "Castelli Balcony" --default
+harp sites add mountain --lat 46.5 --lon 11.35 --elev 1200 --tz Europe/Rome
+harp sites list                 # the default is marked with '*'
+harp sites set-default mountain
+harp sites remove mountain      # also deletes its .hrz (--keep-hrz to keep)
+```
+
+Build a horizon and store it into a site in one step:
+
+```bash
+harp horizon balcony_points.yaml --save-site balcony \
+    --lat 41.738 --lon 12.889 --tz Europe/Rome --default
+```
+
+Sites live in `sites.yaml` (default `~/.config/harp/sites.yaml`, or any
+`--config` path), each `.hrz` written beside it. This is the **same** store
+and file layout the Android app uses — copy the app's exported config
+directory to `~/.config/harp/` and every saved observatory works from the
+CLI unchanged. Removing the default site repoints it to another site
+automatically.
+
 ## Choosing the catalogs
 
 ```bash

@@ -17,7 +17,7 @@ def test_plan_json_shape(runner: CliRunner) -> None:
     result = runner.invoke(app, [*PLAN_ARGS, "--no-plot", "--json"])
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
-    assert data["api_version"] == "1"
+    assert data["api_version"] == "2"
     assert data["night"]["date"] == "2026-08-15"
     assert data["site"]["label"] == "Castelli Balcony"
     assert data["rig"]["fov_w_arcmin"] > data["rig"]["fov_h_arcmin"]

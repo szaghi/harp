@@ -17,11 +17,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -44,9 +47,11 @@ import kotlin.math.sin
  * (Camera AR overlay: phase 2b.)
  */
 @Composable
-fun HorizonScreen(vm: HorizonViewModel) {
+fun HorizonScreen(vm: HorizonViewModel, sitesVm: SitesViewModel) {
     val context = LocalContext.current
     var status by remember { mutableStateOf("") }
+    var showSaveDialog by remember { mutableStateOf(false) }
+    var siteName by remember { mutableStateOf("") }
     var cameraOn by remember { mutableStateOf(false) }
     var falseColor by remember { mutableStateOf(false) }
     var cameraGranted by remember { mutableStateOf(false) }
@@ -193,7 +198,70 @@ fun HorizonScreen(vm: HorizonViewModel) {
                     },
                 ) { Text("Export") }
             }
+            Spacer(Modifier.height(8.dp))
+            Button(
+                enabled = vm.vertices.size >= 2 && vm.latitude != null,
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { showSaveDialog = true },
+            ) { Text("Save as site") }
+            if (vm.vertices.size >= 2 && vm.latitude == null) {
+                Text(
+                    "Get a GPS fix (GPS button) before saving — a site needs a location.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
         }
+    }
+
+    // Name-the-site dialog: save the built .hrz into the durable sites store.
+    if (showSaveDialog) {
+        AlertDialog(
+            onDismissRequest = { showSaveDialog = false },
+            title = { Text("Save observing site") },
+            text = {
+                Column {
+                    Text(
+                        "Stores this horizon and the current GPS location as a named " +
+                            "site, selectable on the Plan tab and shared with the CLI.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = siteName,
+                        onValueChange = { siteName = it },
+                        label = { Text("site name, e.g. Balcony") },
+                        singleLine = true,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = siteName.isNotBlank(),
+                    onClick = {
+                        runCatching {
+                            val (file, problems) = vm.exportHrz()
+                            val content = file.readText()
+                            sitesVm.saveWizardHorizon(
+                                name = siteName.trim(),
+                                lat = vm.latitude ?: 0.0,
+                                lon = vm.longitude ?: 0.0,
+                                elev = vm.elevation ?: 0.0,
+                                tz = java.util.TimeZone.getDefault().id,
+                                hrzContent = content,
+                                makeDefault = true,
+                            )
+                            status = if (problems.isEmpty()) "saved site '${siteName.trim()}'"
+                            else "saved '${siteName.trim()}' with warnings: " +
+                                problems.joinToString()
+                        }.onFailure { status = "save failed: ${it.message}" }
+                        showSaveDialog = false
+                    },
+                ) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSaveDialog = false }) { Text("Cancel") }
+            },
+        )
     }
 }
 

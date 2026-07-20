@@ -33,6 +33,9 @@ data class AppSettings(
     val gridMin: Int = 10,
     val catalogs: String = "M", // "M" | "M,NGC" | "M,NGC,IC"
     val linkSite: String = "simbad",
+    // Selected saved site (name/slug in the sites store); "" means none
+    // selected yet -> the store's default_site is used, GPS as last resort.
+    val selectedSite: String = "",
 )
 
 class SettingsRepo(private val context: Context) {
@@ -49,6 +52,7 @@ class SettingsRepo(private val context: Context) {
         val GRID_MIN = intPreferencesKey("grid_min")
         val CATALOGS = stringPreferencesKey("catalogs")
         val LINK_SITE = stringPreferencesKey("link_site")
+        val SELECTED_SITE = stringPreferencesKey("selected_site")
     }
 
     val flow: Flow<AppSettings> = context.dataStore.data.map { p ->
@@ -65,6 +69,7 @@ class SettingsRepo(private val context: Context) {
             gridMin = p[GRID_MIN] ?: 10,
             catalogs = p[CATALOGS] ?: "M",
             linkSite = p[LINK_SITE] ?: "simbad",
+            selectedSite = p[SELECTED_SITE] ?: "",
         )
     }
 

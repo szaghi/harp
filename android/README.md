@@ -28,6 +28,17 @@ consumes `../../src` directly, so it can never drift from the CLI.
   `harp.api` — GPS site, the wizard's captured horizon picked up
   automatically, desirability-ranked rows, tap a target for its SIMBAD
   page. Default catalog Messier+curated; NGC/IC behind a "deep" switch.
+- **Phase 4 — saved sites** (0.3.0): multiple observatories persisted in a
+  durable store under the app's `filesDir` (`sites.yaml` + one `.hrz` per
+  site) through the shared `harp.sites` core — the **same** layout and
+  format as the CLI's `~/.config/harp/`. The wizard's **Save as site**
+  button writes the built horizon plus the current GPS fix as a named site;
+  the Plan tab has a site picker whose selection is persisted and which
+  supplies the stored lat/lon and `.hrz` to the planner (GPS is now only the
+  fallback when no site is saved). This replaces the old behaviour where the
+  single horizon lived in `cacheDir` and was lost to cache eviction / "Clear
+  cache". Bridges: `sites_bridge.py` (store CRUD), `planner_bridge.py`,
+  `wizard.py`.
 
 ## Building — two paths
 
