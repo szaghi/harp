@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.HarpDroid" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Launch theme (splash before Compose paints). Dark so a cold start
+         does not flash white — the app itself is dark-only, and the default
+         indoor theme is Tokyo Night (#1A1B26). -->
+    <style name="Theme.HarpDroid" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#1A1B26</item>
+        <item name="android:statusBarColor">#1A1B26</item>
+    </style>
 </resources>

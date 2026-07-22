@@ -36,6 +36,10 @@ data class AppSettings(
     // Selected saved site (name/slug in the sites store); "" means none
     // selected yet -> the store's default_site is used, GPS as last resort.
     val selectedSite: String = "",
+    // Appearance. nightVision toggles the red field mode (overrides the indoor
+    // pick); indoorTheme is the chosen indoor palette id (see INDOOR_THEMES).
+    val nightVision: Boolean = false,
+    val indoorTheme: String = DEFAULT_INDOOR_THEME,
 )
 
 class SettingsRepo(private val context: Context) {
@@ -53,6 +57,8 @@ class SettingsRepo(private val context: Context) {
         val CATALOGS = stringPreferencesKey("catalogs")
         val LINK_SITE = stringPreferencesKey("link_site")
         val SELECTED_SITE = stringPreferencesKey("selected_site")
+        val NIGHT_VISION = booleanPreferencesKey("night_vision")
+        val INDOOR_THEME = stringPreferencesKey("indoor_theme")
     }
 
     val flow: Flow<AppSettings> = context.dataStore.data.map { p ->
@@ -70,6 +76,8 @@ class SettingsRepo(private val context: Context) {
             catalogs = p[CATALOGS] ?: "M",
             linkSite = p[LINK_SITE] ?: "simbad",
             selectedSite = p[SELECTED_SITE] ?: "",
+            nightVision = p[NIGHT_VISION] ?: false,
+            indoorTheme = p[INDOOR_THEME] ?: DEFAULT_INDOOR_THEME,
         )
     }
 

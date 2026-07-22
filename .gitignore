@@ -23,6 +23,11 @@ docs/.vitepress/dist/
 # Config (may contain site coordinates / personal data)
 .env
 
+# HARP CLI default output artifacts (written to the cwd by `harp plan`).
+# The curated samples live under examples/*.example.* and stay tracked.
+night_targets.csv
+altitude_charts.png
+
 # Editor
 .vscode/
 .idea/

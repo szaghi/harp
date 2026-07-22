@@ -4,6 +4,8 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -46,6 +48,21 @@ fun SettingsScreen(vm: SettingsViewModel) {
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
     ) {
+        Section("Appearance")
+        Label("night vision (red) — for use at the telescope")
+        ChipRow(
+            listOf(
+                "indoor" to !s.nightVision,
+                "red night vision" to s.nightVision,
+            ),
+        ) { vm.set(SettingsRepo.NIGHT_VISION, it == "red night vision") }
+        Label("indoor dark theme")
+        ThemeChips(selected = s.indoorTheme) { vm.set(SettingsRepo.INDOOR_THEME, it) }
+        Text(
+            "the red theme always overrides the indoor pick while it is on",
+            style = MaterialTheme.typography.bodySmall,
+        )
+
         Section("Rig")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             NumField("focal mm", s.focal, Modifier.weight(1f)) { vm.set(SettingsRepo.FOCAL, it) }
@@ -179,6 +196,21 @@ private fun ChipRow(options: List<Pair<String, Boolean>>, onSelect: (String) -> 
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         options.forEach { (label, selected) ->
             FilterChip(selected = selected, onClick = { onSelect(label) }, label = { Text(label) })
+        }
+    }
+}
+
+/** Wrapping picker over all indoor themes; emits the selected theme id. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ThemeChips(selected: String, onSelect: (String) -> Unit) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        INDOOR_THEMES.forEach { theme ->
+            FilterChip(
+                selected = theme.id == selected,
+                onClick = { onSelect(theme.id) },
+                label = { Text(theme.label) },
+            )
         }
     }
 }
