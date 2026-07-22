@@ -172,9 +172,7 @@ def moon_impact(narrowband: bool, sep_min: float, moon_up_frac: float, illuminat
     return "med"
 
 
-def moon_score(
-    narrowband: bool, sep_min: float, moon_up_frac: float, illumination: float
-) -> float:
+def moon_score(narrowband: bool, sep_min: float, moon_up_frac: float, illumination: float) -> float:
     """Continuous Moon-impact factor for scoring, in [0.2, 1.0].
 
     The companion of :func:`moon_impact`: that returns a coarse verdict

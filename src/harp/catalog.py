@@ -330,9 +330,7 @@ def pyongc_targets(catalogs: list[str], mag_limit: float) -> list[Target]:
                 # Many objects have no common name (-> None); most have no M id.
                 nickname = common_names[0] if common_names else None
                 designation = _messier_label(messier) or obj.name
-                display_name = (
-                    f"{designation} {nickname}" if nickname else designation
-                )
+                display_name = f"{designation} {nickname}" if nickname else designation
                 out.append(
                     Target(
                         name=display_name,
