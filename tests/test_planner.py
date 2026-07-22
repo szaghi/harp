@@ -4,43 +4,66 @@ from __future__ import annotations
 
 import numpy as np
 
-from harp.planner import desirability, longest_window, moon_impact
+from harp.planner import desirability, longest_window, moon_impact, moon_score
 
 FOV = 100.0  # arcmin, long side
+# desirability now takes a moon FACTOR (float in [0.2, 1.0]) from moon_score(),
+# not a verdict string; 1.0 = Moon down / benign, low = heavy penalty.
+CLEAR = 1.0  # Moon down or negligible
+HEAVY = 0.2  # worst-case bright close Moon
 
 
 def test_desirability_bounds() -> None:
-    assert 0.0 < desirability(5, 5, 90, "none", 50, FOV) <= 100.0
-    assert desirability(0.1, 0.0, 5, "high", 1, FOV) < 10.0
+    assert 0.0 < desirability(5, 5, 90, CLEAR, 50, FOV) <= 100.0
+    assert desirability(0.1, 0.0, 5, HEAVY, 1, FOV) < 10.0
 
 
 def test_desirability_monotonic_in_window() -> None:
-    lo = desirability(2, 1, 60, "none", 50, FOV)
-    hi = desirability(4, 3, 60, "none", 50, FOV)
+    lo = desirability(2, 1, 60, CLEAR, 50, FOV)
+    hi = desirability(4, 3, 60, CLEAR, 50, FOV)
     assert hi > lo
 
 
 def test_desirability_monotonic_in_altitude() -> None:
-    assert desirability(4, 3, 70, "none", 50, FOV) > desirability(4, 3, 25, "none", 50, FOV)
+    assert desirability(4, 3, 70, CLEAR, 50, FOV) > desirability(4, 3, 25, CLEAR, 50, FOV)
 
 
 def test_desirability_moon_ordering() -> None:
-    scores = [desirability(4, 3, 60, m, 50, FOV) for m in ("none", "low", "med", "high")]
+    # higher moon factor (less lunar impact) must score higher, all else equal
+    scores = [desirability(4, 3, 60, m, 50, FOV) for m in (1.0, 0.8, 0.5, 0.2)]
     assert scores == sorted(scores, reverse=True)
 
 
+def test_moon_score_graded_not_stepped() -> None:
+    # Moon down -> no penalty for anyone.
+    assert moon_score(narrowband=False, sep_min=90, moon_up_frac=0.0, illumination=0.9) == 1.0
+    # A bright, high-up, close Moon hurts a broadband target a lot...
+    close = moon_score(narrowband=False, sep_min=20, moon_up_frac=1.0, illumination=0.9)
+    # ...far more than a dim, briefly-up, distant Moon.
+    benign = moon_score(narrowband=False, sep_min=90, moon_up_frac=0.2, illumination=0.2)
+    assert close < benign
+    # Separation relieves the penalty (same Moon, farther away scores higher).
+    near = moon_score(narrowband=False, sep_min=25, moon_up_frac=1.0, illumination=0.7)
+    far = moon_score(narrowband=False, sep_min=85, moon_up_frac=1.0, illumination=0.7)
+    assert far > near
+    # Narrowband is near-immune: it beats broadband under the SAME bright Moon.
+    nb = moon_score(narrowband=True, sep_min=40, moon_up_frac=1.0, illumination=0.9)
+    bb = moon_score(narrowband=False, sep_min=40, moon_up_frac=1.0, illumination=0.9)
+    assert nb > bb
+
+
 def test_desirability_fov_match() -> None:
-    fits = desirability(4, 3, 60, "none", 50, FOV)  # half the FOV: ideal
-    speck = desirability(4, 3, 60, "none", 2, FOV)  # tiny speck
-    big_mosaic = desirability(4, 3, 60, "none", 400, FOV)  # 4-panel-wide monster
+    fits = desirability(4, 3, 60, CLEAR, 50, FOV)  # half the FOV: ideal
+    speck = desirability(4, 3, 60, CLEAR, 2, FOV)  # tiny speck
+    big_mosaic = desirability(4, 3, 60, CLEAR, 400, FOV)  # 4-panel-wide monster
     assert fits > speck
     assert fits > big_mosaic
 
 
 def test_desirability_unknown_size_is_neutral() -> None:
-    unk = desirability(4, 3, 60, "none", None, FOV)
-    fits = desirability(4, 3, 60, "none", 50, FOV)
-    speck = desirability(4, 3, 60, "none", 2, FOV)
+    unk = desirability(4, 3, 60, CLEAR, None, FOV)
+    fits = desirability(4, 3, 60, CLEAR, 50, FOV)
+    speck = desirability(4, 3, 60, CLEAR, 2, FOV)
     assert speck < unk < fits
 
 

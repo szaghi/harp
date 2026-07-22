@@ -37,7 +37,12 @@ class PlanViewModel(app: Application) : AndroidViewModel(app) {
     var running by mutableStateOf(false); private set
     var summary by mutableStateOf(""); private set
     var error by mutableStateOf(""); private set
+    // Full ranked list from the bridge; the screen filters these and then
+    // caps the DISPLAYED count to [displayTop] — so a class filter sees every
+    // ranked target, not just a pre-truncated top-N (which on a moonlit night
+    // is all narrowband nebulae, making "galaxy" show nothing).
     val rows = mutableStateListOf<PlanRowUi>()
+    var displayTop by mutableStateOf(30); private set
 
     // per-run input; everything else lives in Settings (DataStore)
     var date by mutableStateOf("")
@@ -142,6 +147,7 @@ class PlanViewModel(app: Application) : AndroidViewModel(app) {
                 error = parsed?.optString("error") ?: "planner returned unparsable output"
                 summary = ""
             } else {
+                displayTop = parsed.optInt("display_top", 30)
                 val night = parsed.getJSONObject("night")
                 val moon = parsed.getJSONObject("moon")
                 val hhmm = { iso: String -> iso.substringAfter('T').take(5) }

@@ -98,13 +98,20 @@ def run_plan(request_json: str) -> str:
                 sort=str(req.get("sort") or "score"),
                 horizon_label=horizon_label,
             )
+        # Return the FULL ranked list, not a top-N slice: the app's class /
+        # emission filter chips run client-side over these rows, so truncating
+        # here would filter-after-truncate — tapping "galaxy" on a night whose
+        # top-N is all narrowband Sh2 would show nothing. The app applies the
+        # display cap (req["top"]) itself, AFTER filtering. `top` is still sent
+        # so the app knows the intended cap.
         out = plan_to_dict(
             plan,
-            top=int(req.get("top") or 30),
+            top=None,
             link_site=str(req.get("link_site") or "simbad"),
         )
         out["elapsed_s"] = round(time.perf_counter() - t0, 1)
         out["n_targets"] = len(targets)
+        out["display_top"] = int(req.get("top") or 30)
         return json.dumps(out)
     except Exception as e:  # surfaced in the UI, never a crash
         return json.dumps({"error": f"{type(e).__name__}: {e}"})

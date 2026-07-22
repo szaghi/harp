@@ -123,7 +123,10 @@ fun PlanScreen(vm: PlanViewModel, sitesVm: SitesViewModel) {
             }
             Spacer(Modifier.height(4.dp))
         }
-        val shown = vm.rows.filter { r ->
+        // Filter the FULL ranked list first, THEN cap to the display limit —
+        // so a class filter reaches every ranked target, not a pre-truncated
+        // top-N (which on a moonlit night is all narrowband nebulae).
+        val filtered = vm.rows.filter { r ->
             (classFilter.isEmpty() || r.kindClass in classFilter) &&
                 when (emissionMode) {
                     1 -> r.narrowband
@@ -131,6 +134,7 @@ fun PlanScreen(vm: PlanViewModel, sitesVm: SitesViewModel) {
                     else -> true
                 }
         }
+        val shown = filtered.take(vm.displayTop)
 
         LazyColumn(Modifier.weight(1f)) {
             items(shown) { r ->

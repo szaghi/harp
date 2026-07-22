@@ -144,6 +144,14 @@ def _norm_ident(raw: str) -> str:
     return s
 
 
+def _messier_label(messier: str | None) -> str | None:
+    """pyongc's Messier id (``'M031'``) as its display handle (``'M31'``).
+
+    Returns None when the object has no Messier designation.
+    """
+    return _norm_ident(messier) if messier else None
+
+
 def _extract_idents(name: str) -> frozenset[str]:
     """Extract catalog designations from a free-form target name.
 
@@ -307,16 +315,27 @@ def pyongc_targets(catalogs: list[str], mag_limit: float) -> list[Target]:
             dims = obj.dimensions or (None, None, None)
             try:
                 # identifiers = (messier, ngc, ic, common_names, other_idents)
-                messier, ngc, ic, _, others = obj.identifiers
+                messier, ngc, ic, common_names, others = obj.identifiers
                 idents = {obj.name}
                 for ref in (messier, ngc, ic, *(others or [])):
                     if isinstance(ref, str):
                         idents.add(ref)
                     elif isinstance(ref, list | tuple):
                         idents.update(ref)
+                # Build the display name: prefer the Messier number as the
+                # handle when there is one (M31 is the recognizable name for
+                # NGC0224), then fold in OpenNGC's maintained common name
+                # (-> "M31 Andromeda Galaxy"). No hand list: both the Messier
+                # id and the common name ship with pyongc and update upstream.
+                # Many objects have no common name (-> None); most have no M id.
+                nickname = common_names[0] if common_names else None
+                designation = _messier_label(messier) or obj.name
+                display_name = (
+                    f"{designation} {nickname}" if nickname else designation
+                )
                 out.append(
                     Target(
-                        name=obj.name,
+                        name=display_name,
                         kind=obj.type,
                         const=obj.constellation,
                         # mv is None for magnitude-less emission nebulae (now

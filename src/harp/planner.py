@@ -33,22 +33,9 @@ __all__ = [
     "desirability",
     "longest_window",
     "moon_impact",
+    "moon_score",
     "plan_night",
 ]
-
-# Moon-impact verdict -> multiplicative score factor. 'n/a' is the Solar
-# System case: the Moon-impact machinery does not apply (a planet is not
-# degraded by moonlight the way faint deep-sky nebulosity is), so it neither
-# rewards nor penalizes.
-_MOON_FACTOR = {
-    "none": 1.0,
-    "ok(NB)": 0.9,
-    "low": 0.8,
-    "med": 0.5,
-    "close": 0.4,
-    "high": 0.2,
-    "n/a": 1.0,
-}
 
 
 @dataclass(frozen=True)
@@ -185,6 +172,60 @@ def moon_impact(narrowband: bool, sep_min: float, moon_up_frac: float, illuminat
     return "med"
 
 
+def moon_score(
+    narrowband: bool, sep_min: float, moon_up_frac: float, illumination: float
+) -> float:
+    """Continuous Moon-impact factor for scoring, in [0.2, 1.0].
+
+    The companion of :func:`moon_impact`: that returns a coarse verdict
+    *string* for display, this returns the smooth factor the score uses.
+    Splitting them fixes the ranking cliff where the old bucket factors
+    (broadband ``med`` = 0.5 vs narrowband ``ok(NB)`` = 0.9) sorted *every*
+    galaxy/cluster below *every* narrowband nebula on any moonlit night,
+    regardless of how bright, high, or Moon-distant the broadband target was.
+
+    The penalty is graded by the actual geometry:
+
+    - **Moon down** (``moon_up_frac == 0``): 1.0, no penalty.
+    - **Narrowband**: near-immune; only a close bright Moon scatters into a
+      3 nm passband. Ranges ~0.85 (Moon <20 deg) to 1.0.
+    - **Broadband**: penalty scales with how much the Moon actually pollutes
+      the sky — its illuminated fraction and how much of the window it is up —
+      and is relieved by separation. A dim, distant, briefly-up Moon costs
+      little (~0.8); a full, close, all-night Moon costs a lot (~0.25). So a
+      bright high galaxy with the Moon low and far now competes with a
+      narrowband target instead of being quarantined beneath it.
+
+    Parameters
+    ----------
+    narrowband : bool
+        Halpha target imaged in narrowband (tolerates the Moon).
+    sep_min : float
+        Minimum Moon separation across the usable window, degrees.
+    moon_up_frac : float
+        Fraction of the usable window with the Moon above the horizon, 0..1.
+    illumination : float
+        Moon illuminated fraction, 0..1.
+
+    Returns
+    -------
+    float
+        Scoring factor in [0.2, 1.0]; higher is better.
+    """
+    if moon_up_frac <= 0.0:
+        return 1.0
+    if narrowband:
+        # a 3 nm passband rejects almost all moonlight; only a close bright
+        # Moon leaks measurable scatter.
+        return 0.85 if sep_min < 20.0 else 1.0
+    # broadband: brightness in the sky ~ illumination * time-up, relieved by
+    # angular distance. sep_factor: 0 at the scope, 1 by ~90 deg away.
+    sky = illumination * moon_up_frac
+    sep_factor = min(max(sep_min, 0.0) / 90.0, 1.0)
+    penalty = sky * (1.0 - 0.7 * sep_factor)  # 0 (benign) .. ~1 (worst)
+    return max(0.2, 1.0 - 0.8 * penalty)
+
+
 def _fov_match(maj_arcmin: float | None, fov_long: float) -> float:
     """How well the object size suits the field of view, in (0, 1].
 
@@ -204,17 +245,60 @@ def _fov_match(maj_arcmin: float | None, fov_long: float) -> float:
     return max(0.2, 1.0 / r)
 
 
+def _prominence(mag: float | None, maj_arcmin: float | None) -> float:
+    """Intrinsic prominence of a target, in [0.35, 1.0].
+
+    A brightness/interest term added so observability alone cannot let the
+    (moon-immune, high, all-night) Sharpless H II regions sweep the ranking
+    and bury bright Messier/NGC objects on moonlit nights. It is deliberately
+    floored well above zero: prominence *ranks*, it must not annihilate an
+    otherwise-observable target (the composite score is a geometric mean, so
+    a near-zero factor would drop the object off the list entirely).
+
+    Two regimes:
+
+    - **Magnitude known** (Messier, most NGC/IC): brighter scores higher.
+      ``mag <= 6`` saturates at 1.0; it tapers to the floor by ``mag ~ 13``.
+    - **Magnitude absent** (Sharpless and other magnitude-less emission,
+      ``mag is None``): a neutral-low baseline modulated by angular size, so
+      the big showpiece regions (Heart, Soul, ...) stay competitive while the
+      obscure small H II regions settle below the bright classics.
+
+    Parameters
+    ----------
+    mag : float or None
+        Integrated visual magnitude, or None when the catalogue has none.
+    maj_arcmin : float or None
+        Major-axis angular size, arcmin; used only in the magnitude-less case.
+
+    Returns
+    -------
+    float
+        Prominence factor in [0.35, 1.0].
+    """
+    floor = 0.35
+    if mag is not None:
+        # mag 6 -> 1.0, mag 13 -> ~floor; linear in between.
+        return max(floor, min(1.0, 1.0 - (mag - 6.0) / 7.0))
+    # magnitude-less: baseline lifted by size (arcmin). 15' -> ~0.45,
+    # 90'+ -> ~0.75; the big Sharpless showpieces stay ahead of the small ones.
+    if maj_arcmin is None:
+        return 0.5
+    return max(floor, min(0.75, 0.40 + 0.35 * min(maj_arcmin / 90.0, 1.0)))
+
+
 def desirability(
     hours: float,
     cont_hours: float,
     alt_max: float,
-    moon: str,
+    moon_factor: float,
     maj_arcmin: float | None,
     fov_long: float,
+    mag: float | None = None,
 ) -> float:
     """Composite 0-100 desirability score for one target on one night.
 
-    Weighted geometric mean of five terms, so a near-zero factor (no
+    Weighted geometric mean of six terms, so a near-zero factor (no
     continuous window, hopeless Moon) sinks the score instead of being
     averaged away:
 
@@ -222,15 +306,22 @@ def desirability(
       uninterrupted run is what sizes an imaging session; saturates at 3 h;
     - total hours (weight 1): ``min(hours/5, 1)``;
     - peak altitude (weight 2): ``sin(alt_max)`` — the inverse-airmass proxy;
-    - Moon verdict (weight 2): 1.0 (none) down to 0.2 (high);
-    - FOV match (weight 1): see :func:`_fov_match`.
+    - Moon (weight 2): ``moon_factor`` in [0.2, 1.0] from :func:`moon_score` —
+      graded by illumination, up-fraction and separation, NOT a broadband /
+      narrowband step, so a bright high galaxy with the Moon low and far is
+      no longer quarantined below every narrowband nebula;
+    - FOV match (weight 1): see :func:`_fov_match`;
+    - prominence (weight 2): see :func:`_prominence` — a brightness/interest
+      term so pure observability cannot let the moon-immune Sharpless regions
+      bury bright classics on moonlit nights.
     """
     terms = [
         (3.0, min(cont_hours / 3.0, 1.0)),
         (1.0, min(hours / 5.0, 1.0)),
         (2.0, math.sin(math.radians(max(alt_max, 0.0)))),
-        (2.0, _MOON_FACTOR.get(moon, 0.5)),
+        (2.0, moon_factor),
         (1.0, _fov_match(maj_arcmin, fov_long)),
+        (2.0, _prominence(mag, maj_arcmin)),
     ]
     num = sum(w * math.log(max(t, 1e-3)) for w, t in terms)
     den = sum(w for w, _ in terms)
@@ -366,6 +457,7 @@ def plan_night(
             maj = solar_apparent_arcmin(site.location, window, t.body, solar_radii[t.body])
             frame = "planetary"
             moon_verdict = "n/a"
+            moon_factor = 1.0  # Moon impact undefined for a Solar System body
             sep_disp = 0.0
         else:
             maj = t.maj_arcmin
@@ -373,6 +465,7 @@ def plan_night(
             sep_min = float(sep[i][win].min())
             sep_disp = sep_min
             moon_verdict = moon_impact(t.narrowband, sep_min, up_frac, moon.illumination)
+            moon_factor = moon_score(t.narrowband, sep_min, up_frac, moon.illumination)
         rows.append(
             PlanRow(
                 index=i,
@@ -396,9 +489,10 @@ def plan_night(
                         hours=float(hours[i]),
                         cont_hours=cont_h,
                         alt_max=peak_alt,
-                        moon=moon_verdict,
+                        moon_factor=moon_factor,
                         maj_arcmin=maj,
                         fov_long=rig.fov_long,
+                        mag=t.mag,
                     ),
                     1,
                 ),

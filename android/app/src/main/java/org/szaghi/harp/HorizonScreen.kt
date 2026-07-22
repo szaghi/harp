@@ -8,6 +8,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -161,22 +162,30 @@ fun HorizonScreen(vm: HorizonViewModel, sitesVm: SitesViewModel) {
                 modifier = Modifier.fillMaxWidth().height(64.dp),
             ) { Text("Add vertex", style = MaterialTheme.typography.titleLarge) }
             Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Four equal-width action buttons. Content padding is tightened and
+            // labels are pinned to a single line so "Wall 90°"/"Export" never
+            // wrap in the narrow cell (the default OutlinedButton padding does
+            // not leave room at four-across on a phone).
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 OutlinedButton(
                     onClick = { vm.addWallEdge() },
                     modifier = Modifier.weight(1f),
-                ) { Text("Wall 90°") }
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
+                ) { Text("Wall 90°", maxLines = 1, softWrap = false) }
                 OutlinedButton(
                     onClick = { vm.removeLast() },
                     modifier = Modifier.weight(1f),
-                ) { Text("Undo") }
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
+                ) { Text("Undo", maxLines = 1, softWrap = false) }
                 OutlinedButton(
                     onClick = { vm.requestFix() },
                     modifier = Modifier.weight(1f),
-                ) { Text("GPS") }
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
+                ) { Text("GPS", maxLines = 1, softWrap = false) }
                 Button(
                     enabled = vm.vertices.size >= 2,
                     modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
                     onClick = {
                         // never crash on export: surface errors in the status line
                         runCatching {
@@ -196,7 +205,7 @@ fun HorizonScreen(vm: HorizonViewModel, sitesVm: SitesViewModel) {
                             )
                         }.onFailure { status = "export failed: ${it.message}" }
                     },
-                ) { Text("Export") }
+                ) { Text("Export", maxLines = 1, softWrap = false) }
             }
             Spacer(Modifier.height(8.dp))
             Button(

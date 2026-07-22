@@ -49,6 +49,23 @@ consumes `../../src` directly, so it can never drift from the CLI.
   `null` for moving bodies. A future planner-tab iteration can group or
   filter by nature and badge Solar System rows; no app change is required to
   keep working against the new surface.
+- **Phase 5 — polar-alignment compass** (Compass tab): a live true-north
+  compass rose (magnetic->true via the on-device WMM, same as the horizon
+  wizard) with the visible celestial pole marked on it and a plain-language
+  "turn N° left/right, tilt N° up/down" delta to drive an EQ mount's polar
+  axis onto the pole. The pole is a pure function of latitude (az 0/180,
+  alt = |latitude|) so nothing calls the Python core; Polaris is drawn
+  coincident with the north pole (its ~0.7° offset is inside the
+  magnetometer's own error). Rough mechanical alignment to get the pole into
+  a finder — not a substitute for drift or plate-solve. A **gyro hold**
+  ("INS") button latches the fused heading while the phone is calibrated and
+  clear of the mount, then propagates it on the gyro alone (world-frame
+  integration, exact at any tilt) so the mount's steel no longer pulls the
+  reading as you walk the phone in onto the polar axis — the alignment
+  workflow real observers use. The lock is manual, calibration-gated,
+  visibly indicated, and auto-releases after 30 s; it is hidden on devices
+  with no gyroscope. Pure Kotlin (`CompassViewModel` / `CompassScreen`), no
+  bridge, no `harp.api` change.
 - **Core capability — Sharpless emission nebulae**: the shared core ships the
   313 Sharpless (Sh2) H II regions and their measured sizes, correcting
   OpenNGC's under-sized nebulae via a vendored Sh2↔NGC/IC/M concordance
@@ -98,8 +115,33 @@ gradle -p android :app:assembleDebug
 # -> android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
+> [!IMPORTANT]
+> **After editing anything under the shared `../../src` Python core, build with
+> `--rerun-tasks`:**
+>
+> ```bash
+> gradle -p android :app:assembleDebug --rerun-tasks
+> ```
+>
+> The app embeds `src/harp` via Chaquopy's `srcDir("../../src")`, a directory
+> *outside* the Gradle module. Gradle's incremental up-to-date check does not
+> reliably detect edits there, so a plain `assembleDebug` reports
+> `mergeDebugPythonSources UP-TO-DATE` and silently bundles the **previous**
+> `.pyc` — the APK then runs stale planner/catalog code while your `src/`
+> shows the fix. `--rerun-tasks` forces the merge to re-embed the current
+> sources. Kotlin-only changes (`.kt`) build correctly without it. To verify a
+> build picked up a source change, grep the bundled bytecode for a symbol you
+> just added:
+>
+> ```bash
+> unzip -p android/app/build/outputs/apk/debug/app-debug.apk \
+>   assets/chaquopy/app.imy | grep -a <new_symbol> \
+>   && echo "fresh" || echo "STALE — rebuild with --rerun-tasks"
+> ```
+
 The first build is slow (Chaquopy downloads the Android wheels for the
-astro stack); incremental rebuilds take seconds to a minute. Python 3.12
+astro stack); incremental rebuilds take seconds to a minute (but see the
+shared-Python caveat above). Python 3.12
 must be on PATH (Chaquopy's `buildPython`; adjust
 `chaquopy.defaultConfig.version` in `app/build.gradle.kts` if yours
 differs). If a build fails immediately after a toolchain change, stop the

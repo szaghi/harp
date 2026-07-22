@@ -35,8 +35,11 @@ jobs:
         with:
           gradle-version: "8.13"
 
+      # --rerun-tasks: the app embeds ../../src via Chaquopy from outside the
+      # Gradle module; without it the Python-merge task can go UP-TO-DATE and
+      # ship a stale bytecode bundle (old planner/catalog) in the artifact.
       - name: Build debug APK
-        run: gradle -p android :app:assembleDebug
+        run: gradle -p android :app:assembleDebug --rerun-tasks
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

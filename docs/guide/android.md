@@ -36,6 +36,17 @@ gradle -p android :app:assembleDebug
 # -> android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
+::: warning After editing the shared `src/` Python, add `--rerun-tasks`
+```bash
+gradle -p android :app:assembleDebug --rerun-tasks
+```
+The app embeds `src/harp` via Chaquopy from *outside* the Gradle module, so a
+plain `assembleDebug` can report the Python merge `UP-TO-DATE` and bundle the
+**previous** bytecode — the APK then runs stale planner/catalog code. Kotlin-only
+changes do not need it. Full explanation and a verify-the-bundle one-liner are in
+[`android/README.md`](https://github.com/szaghi/harp/blob/main/android/README.md).
+:::
+
 First build is slow (Chaquopy fetches the Android wheels of the astro
 stack); later builds take seconds to a minute. The full setup commands,
 phone-transfer options (HTTP serve or wireless adb), and the on-device
