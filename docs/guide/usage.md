@@ -63,6 +63,38 @@ The offline OpenNGC database holds ~14k NGC/IC objects; `--mag-limit`
 (default 11.0) applies to these, never to the curated nebulae. The config
 key `catalogs` (string or list) sets a default.
 
+## Solar System targets
+
+The Moon and the eight planets are planned alongside deep-sky objects, on
+by default:
+
+```bash
+harp plan                              # planets + Moon included
+harp plan --no-solar-system            # deep-sky only
+harp plan --filter planet              # planets only
+harp plan --filter moon                # just the Moon
+```
+
+Unlike fixed deep-sky objects, Solar System bodies **move**: their position
+and apparent disk size are recomputed for every time step of the night from
+astropy's built-in ephemeris — no download, fully offline. They are ranked
+on visibility (hours above your horizon, peak altitude) like any other
+target, but the Moon-impact and mosaic-framing columns do not apply and show
+`n/a` / `planetary`. They are excluded from N.I.N.A. exports (N.I.N.A. tracks
+them from its own ephemeris; a static J2000 coordinate would be wrong).
+
+Natural satellites (Titan, the Galilean moons) are **not** in the built-in
+ephemeris and are off by default:
+
+```bash
+harp plan --ss-moons                   # + major moons (online, downloads a kernel)
+```
+
+`--ss-moons` fetches a JPL satellite ephemeris at run time — the only part of
+HARP that touches the network — and is intended for completeness, not
+imaging: on a deep-sky rig these moons are unresolvable points inside the
+parent planet's glare.
+
 ## Your own targets
 
 ```bash
@@ -100,10 +132,11 @@ harp plan --sort alt                     # rank by peak altitude
 harp plan --sort name                    # alphabetical
 ```
 
-Class tokens (`nebula`, `galaxy`, `cluster`, `planetary`, `star`, `other`)
-are OR-ed together; `emission`/`non-emission` AND on top of them. Config
-keys: `filter`, `sort`. Sorting accepts `score` (default), `hours`
-(historical order), `alt`, `name`.
+Class tokens (`nebula`, `galaxy`, `cluster`, `planetary`, `star`, `planet`,
+`moon`, `sun`, `other`) are OR-ed together; `emission`/`non-emission` AND on
+top of them. Note the distinction between `planetary` (planetary *nebula*)
+and `planet` (a Solar System planet). Config keys: `filter`, `sort`. Sorting
+accepts `score` (default), `hours` (historical order), `alt`, `name`.
 
 ## Mosaic panel coordinates
 
@@ -143,6 +176,12 @@ headers — N.I.N.A. has a known importer bug that reads a bare
 `Right Ascension` column for the declination too, which these files
 therefore never contain.
 
+Solar System bodies have no fixed J2000 coordinate, so they are exported as
+a **dusk snapshot**: the position at that night's dusk, with the familiar
+name marked `<body> (<date> dusk)` to flag it as a single-instant
+placeholder. N.I.N.A. re-slews to the live position from its own ephemeris —
+the snapshot only keeps the body present in the imported list.
+
 ## Target details
 
 ```bash
@@ -150,10 +189,12 @@ harp info M27
 harp info "Elephant Trunk" --catalogs M,NGC,IC
 ```
 
-Prints everything HARP knows offline — designations, type (with the
-narrowband verdict), coordinates, magnitude, size, framing for your rig
-with the mosaic detail suggestion — plus the informative links for all
-four providers.
+Prints everything HARP knows offline — designations, classification, type
+(with the narrowband verdict), coordinates, magnitude, size, framing for
+your rig with the mosaic detail suggestion — plus the informative links for
+all four providers. For a Solar System body (`harp info Mars`) the output
+notes that the position and apparent disk are computed per night rather than
+fixed, and the links are name-based.
 
 ## Reading the output
 
@@ -168,14 +209,20 @@ four providers.
 - **cont / window** — longest **continuous** run and its interval: how long
   you can integrate before the object enters a blocked sector. Size exposures
   and mosaic panels on this number.
+- **kind** — the catalog type; its nature (`nebula`, `galaxy`, `cluster`,
+  `planetary`, `star`, `planet`, `moon`, `sun`) is the **classification**,
+  filterable with `--filter` and carried in the CSV/JSON.
 - **altMx / az** — peak altitude and the azimuth at that moment.
-- **moonSep** — minimum Moon separation during the usable window.
+- **moonSep** — minimum Moon separation during the usable window
+  (`0` for Solar System bodies, where it does not apply).
 - **Moon** — impact: `none` (Moon down), `ok(NB)` (negligible in narrowband),
-  `low`/`med`/`high` (broadband impact from phase + separation). For catalog
-  objects, narrowband is derived from the type: planetaries, supernova
-  remnants, and HII regions get the relaxed verdict; galaxies, clusters, and
-  reflection nebulae keep the broadband penalty.
-- **frame** — `1 frame` or `mosaic NxM` for your rig (15% overlap).
+  `low`/`med`/`high` (broadband impact from phase + separation), or `n/a` for
+  Solar System bodies (not degraded by moonlight the way faint deep-sky
+  nebulosity is). For catalog objects, narrowband is derived from the type:
+  planetaries, supernova remnants, and HII regions get the relaxed verdict;
+  galaxies, clusters, and reflection nebulae keep the broadband penalty.
+- **frame** — `1 frame` or `mosaic NxM` for your rig (15% overlap), or
+  `planetary` for a Solar System body (mosaic framing does not apply).
 - **detail** — for mosaic targets, an interesting crop that fits one frame.
 - **link** (CSV only) — an informative web page per target, built offline
   from the designation. Provider via `--link-site` (or config `link_site`):
@@ -251,5 +298,11 @@ optics:
 - pyongc objects are filtered by V magnitude; large emission nebulae often
   have none, which is why the curated internal catalogue exists (and is never
   magnitude-filtered).
+- Solar System bodies carry no magnitude (phase-dependent); their apparent
+  disk is derived live from the body's distance at each time step. HARP ranks
+  them on visibility only — it flags *when* a planet is up, not lucky-imaging
+  suitability, which is a different technique from deep-sky work. Satellites
+  (`--ss-moons`) are for completeness: on a deep-sky rig they are unresolvable
+  points inside the parent planet's glare.
 - Weather (seeing/clouds) is out of scope: check Astrospheric / Clear Outside
   / Meteoblue before the session.

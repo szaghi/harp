@@ -9,8 +9,11 @@ status.
 
 - `src/harp/` — package sources (src layout; import only works installed):
   `horizon.py` (.hrz mask + builder), `catalog.py` (curated nebulae +
-  pyongc), `optics.py` (rig FOV/mosaic), `ephemeris.py` (darkness window,
-  alt-az, Moon), `planner.py` (orchestration -> NightPlan), `report.py`
+  pyongc + target classification), `solar_system.py` (Moon + planets as
+  moving targets, offline; satellites gated behind an online kernel),
+  `optics.py` (rig FOV/mosaic), `ephemeris.py` (darkness window,
+  alt-az, Moon, Solar System alt-az + apparent size), `planner.py`
+  (orchestration -> NightPlan; splits fixed vs moving bodies), `report.py`
   (table/CSV/charts), `config.py` (CLI > config > defaults layering),
   `mosaic.py` (per-panel sky geometry), `nina.py` (N.I.N.A. CSV exports —
   header choice works around NINA's dec-import bug, see module docstring),

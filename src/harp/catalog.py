@@ -78,11 +78,20 @@ class Target:
         Apparent major/minor axis in arcminutes.
     narrowband : bool
         True for Halpha emission nebulae that image well in narrowband.
-    coord : astropy.coordinates.SkyCoord
-        ICRS coordinates.
+    coord : astropy.coordinates.SkyCoord or None
+        Fixed ICRS coordinates for deep-sky objects; ``None`` for Solar
+        System bodies, whose position is computed live from :attr:`body`.
     idents : frozenset of str
         Normalized catalog designations (M42, NGC1976, SH2-101, ...) used
         for identity-based deduplication across sources.
+    classification : str
+        Object nature, one of the :func:`kind_class` values (``nebula``,
+        ``galaxy``, ..., ``planet``, ``moon``, ``sun``). Defaults to
+        ``kind_class(kind)`` for deep-sky objects; Solar System targets set
+        it explicitly.
+    body : str or None
+        ``get_body`` name (``'mars'``, ``'moon'``, ...) for a Solar System
+        target; ``None`` for a fixed deep-sky object.
     """
 
     name: str
@@ -92,8 +101,20 @@ class Target:
     maj_arcmin: float | None
     min_arcmin: float | None
     narrowband: bool
-    coord: SkyCoord
+    coord: SkyCoord | None
     idents: frozenset[str] = field(default_factory=frozenset)
+    classification: str = ""
+    body: str | None = None
+
+    def __post_init__(self) -> None:
+        # Deep-sky targets derive their class from the raw kind; Solar System
+        # targets pass an explicit classification. A moving body carries no
+        # fixed coord (position is computed live from `body`); a fixed object
+        # must have one.
+        if not self.classification:
+            object.__setattr__(self, "classification", kind_class(self.kind))
+        if self.body is None and self.coord is None:
+            raise CatalogError(f"fixed target {self.name!r} has no coordinates")
 
 
 def _norm_ident(raw: str) -> str:
@@ -302,6 +323,11 @@ def dedup(targets: list[Target], sep_deg: float = 2.0 / 60.0) -> list[Target]:
     for t in targets:
         if t.idents & seen:
             continue
+        # Solar System bodies carry no fixed coord and no designations: they
+        # are unique by construction, so skip both dedup branches.
+        if t.coord is None:
+            uniq.append(t)
+            continue
         ra, dec = t.coord.ra.rad, t.coord.dec.rad
         v = np.array([np.cos(dec) * np.cos(ra), np.cos(dec) * np.sin(ra), np.sin(dec)])
         if kept_xyz.size and (kept_xyz @ v).max() > cos_thr:
@@ -373,7 +399,9 @@ def user_targets(path: str | Path) -> list[Target]:
     return out
 
 
-_CLASS_TOKENS = frozenset({"nebula", "galaxy", "cluster", "planetary", "star", "other"})
+_CLASS_TOKENS = frozenset(
+    {"nebula", "galaxy", "cluster", "planetary", "star", "planet", "moon", "sun", "other"}
+)
 FILTER_TOKENS = _CLASS_TOKENS | {"emission", "non-emission"}
 
 
@@ -381,8 +409,14 @@ def kind_class(kind: str) -> str:
     """Collapse a raw catalog kind into the filter taxonomy.
 
     One of ``nebula``, ``galaxy``, ``cluster``, ``planetary``, ``star``,
-    ``other``. Emission-ness is NOT a class: it is the orthogonal
-    ``narrowband`` flag.
+    ``planet``, ``moon``, ``sun``, ``other``. Emission-ness is NOT a class:
+    it is the orthogonal ``narrowband`` flag.
+
+    Note the deliberate ``planetary`` (planetary *nebula*) vs ``planet``
+    (a Solar System planet) split: the ``planetary`` test runs first, so a
+    ``'Planetary Nebula'`` kind never falls through to ``planet``. Solar
+    System targets set their classification explicitly rather than routing a
+    raw kind through here, but the branches exist for filter symmetry.
     """
     k = kind.lower()
     if "galax" in k:
@@ -395,6 +429,12 @@ def kind_class(kind: str) -> str:
         return "nebula"
     if "cluster" in k or "association" in k:
         return "cluster"
+    if "moon" in k or "satellite" in k:
+        return "moon"
+    if "planet" in k:
+        return "planet"
+    if "sun" in k:
+        return "sun"
     if "star" in k:
         return "star"
     return "other"
@@ -427,7 +467,7 @@ def filter_targets(targets: list[Target], spec: str | list[str]) -> list[Target]
 
     out = []
     for t in targets:
-        if classes and kind_class(t.kind) not in classes:
+        if classes and t.classification not in classes:
             continue
         if want_emission and not want_non and not t.narrowband:
             continue
@@ -455,6 +495,8 @@ def find_targets(query: str, targets: list[Target]) -> list[Target]:
 def build_targets(
     use_nebulae: bool = True,
     use_pyongc: bool = True,
+    use_solar_system: bool = True,
+    ss_moons: bool = False,
     pyongc_catalogs: list[str] | None = None,
     mag_limit: float = 11.0,
     targets_file: str | Path | None = None,
@@ -462,6 +504,8 @@ def build_targets(
     """Assemble the final target list, deduplicated across sources.
 
     Source priority for duplicates: user targets > curated nebulae > pyongc.
+    Solar System bodies carry no designation and no fixed coordinate, so they
+    are appended after dedup — they never collide with a deep-sky object.
 
     Parameters
     ----------
@@ -469,6 +513,12 @@ def build_targets(
         Include the curated large-nebulae catalogue.
     use_pyongc : bool
         Include pyongc objects (offline Messier/NGC/IC).
+    use_solar_system : bool
+        Include the Solar System bodies (Moon + planets, offline).
+    ss_moons : bool
+        Also include the major natural satellites. Requires the JPL satellite
+        ephemeris (online); the caller must have loaded it via
+        :func:`harp.solar_system.load_moon_ephemeris` first.
     pyongc_catalogs : list of str or None
         pyongc catalog names among ``M``/``NGC``/``IC``; defaults to ``['M']``.
     mag_limit : float
@@ -483,4 +533,9 @@ def build_targets(
         items += curated_nebulae()
     if use_pyongc:
         items += pyongc_targets(pyongc_catalogs or ["M"], mag_limit)
-    return dedup(items)
+    result = dedup(items)
+    if use_solar_system:
+        from harp.solar_system import solar_system_targets
+
+        result += solar_system_targets(include_moons=ss_moons)
+    return result

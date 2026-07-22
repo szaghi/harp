@@ -27,7 +27,9 @@ from harp.planner import NightPlan, PlanRow, Site, desirability, plan_night
 from harp.sites import SiteEntry, SitesConfig, default_config_path, slugify
 
 # 2: added the multi-site store (SitesConfig/SiteEntry) and site JSON helpers.
-API_VERSION = "2"
+# 3: Solar System targets (Target.body/coord=None) and the target
+#    classification field, both surfaced additively in every converter.
+API_VERSION = "3"
 
 __all__ = [
     "API_VERSION",
@@ -64,7 +66,9 @@ __all__ = [
 ]
 
 
-def site_to_dict(site: SiteEntry, *, has_hrz: bool = False, is_default: bool = False) -> dict[str, Any]:
+def site_to_dict(
+    site: SiteEntry, *, has_hrz: bool = False, is_default: bool = False
+) -> dict[str, Any]:
     """JSON-safe view of a saved site, for the app's site list.
 
     Parameters
@@ -90,29 +94,49 @@ def site_to_dict(site: SiteEntry, *, has_hrz: bool = False, is_default: bool = F
     }
 
 
+def _ra_dec(t: Target) -> tuple[float | None, float | None]:
+    """Fixed ICRS (ra, dec) in degrees, or (None, None) for a moving body."""
+    if t.coord is None:
+        return None, None
+    return round(t.coord.ra.deg, 5), round(t.coord.dec.deg, 5)
+
+
 def target_to_dict(t: Target) -> dict[str, Any]:
-    """JSON-safe view of a catalog target."""
+    """JSON-safe view of a catalog target.
+
+    ``ra_deg``/``dec_deg`` are ``None`` for Solar System bodies (they have no
+    fixed coordinate); ``body`` names the ``get_body`` body for those and is
+    ``None`` for fixed deep-sky objects.
+    """
+    ra_deg, dec_deg = _ra_dec(t)
     return {
         "name": t.name,
         "kind": t.kind,
+        "classification": t.classification,
+        "body": t.body,
         "const": t.const,
         "mag": t.mag,
         "maj_arcmin": t.maj_arcmin,
         "min_arcmin": t.min_arcmin,
         "narrowband": t.narrowband,
-        "ra_deg": round(t.coord.ra.deg, 5),
-        "dec_deg": round(t.coord.dec.deg, 5),
+        "ra_deg": ra_deg,
+        "dec_deg": dec_deg,
         "idents": sorted(t.idents),
     }
 
 
 def _row_to_dict(r: PlanRow, plan: NightPlan, link_site: str) -> dict[str, Any]:
     t = plan.targets[r.index]
+    ra_deg, dec_deg = _ra_dec(t)
     return {
         "name": r.name,
         "score": r.score,
         "kind": r.kind,
-        "class": kind_class(r.kind),
+        # 'class' kept for backward compatibility; PlanRow.classification is
+        # now authoritative (explicit for Solar System bodies, derived for DSOs).
+        "class": r.classification,
+        "classification": r.classification,
+        "body": t.body,
         "const": r.const,
         "mag": r.mag,
         "hours": r.hours,
@@ -125,8 +149,8 @@ def _row_to_dict(r: PlanRow, plan: NightPlan, link_site: str) -> dict[str, Any]:
         "moon": r.moon,
         "frame": r.frame,
         "detail": r.detail,
-        "ra_deg": round(t.coord.ra.deg, 5),
-        "dec_deg": round(t.coord.dec.deg, 5),
+        "ra_deg": ra_deg,
+        "dec_deg": dec_deg,
         "narrowband": t.narrowband,
         "link": target_link(t, link_site),
     }
@@ -227,6 +251,6 @@ def info_to_dict(t: Target, rig: Rig) -> dict[str, Any]:
     """JSON-safe view of a single target's details plus all provider links."""
     d = target_to_dict(t)
     d["api_version"] = API_VERSION
-    d["frame"] = rig.framing(t.maj_arcmin, t.min_arcmin)
+    d["frame"] = "planetary" if t.body is not None else rig.framing(t.maj_arcmin, t.min_arcmin)
     d["links"] = {provider: target_link(t, provider) for provider in LINK_PROVIDERS}
     return d

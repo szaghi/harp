@@ -17,7 +17,7 @@ def test_plan_json_shape(runner: CliRunner) -> None:
     result = runner.invoke(app, [*PLAN_ARGS, "--no-plot", "--json"])
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
-    assert data["api_version"] == "2"
+    assert data["api_version"] == "3"
     assert data["night"]["date"] == "2026-08-15"
     assert data["site"]["label"] == "Castelli Balcony"
     assert data["rig"]["fov_w_arcmin"] > data["rig"]["fov_h_arcmin"]
@@ -27,6 +27,10 @@ def test_plan_json_shape(runner: CliRunner) -> None:
     assert scores == sorted(scores, reverse=True)
     first = rows[0]
     assert {"name", "score", "window", "ra_deg", "dec_deg", "link"} <= set(first)
+    # every row carries its nature; the default plan includes Solar System bodies
+    assert all("classification" in r for r in rows)
+    classes = {r["classification"] for r in rows}
+    assert classes & {"planet", "moon"}, "Solar System bodies should be present by default"
     # curves are included and consistent with the grid
     curves = data["curves"]
     n_times = len(curves["times"])

@@ -13,7 +13,16 @@ from astroplan import Observer
 from astropy.coordinates import EarthLocation
 
 from harp.catalog import Target, suggest_detail
-from harp.ephemeris import MoonState, NightWindow, compute_night, fmt_hm, moon_state, target_altaz
+from harp.ephemeris import (
+    MoonState,
+    NightWindow,
+    compute_night,
+    fmt_hm,
+    moon_state,
+    solar_altaz,
+    solar_apparent_arcmin,
+    target_altaz,
+)
 from harp.horizon import Horizon
 from harp.optics import Rig
 
@@ -27,8 +36,19 @@ __all__ = [
     "plan_night",
 ]
 
-# Moon-impact verdict -> multiplicative score factor.
-_MOON_FACTOR = {"none": 1.0, "ok(NB)": 0.9, "low": 0.8, "med": 0.5, "close": 0.4, "high": 0.2}
+# Moon-impact verdict -> multiplicative score factor. 'n/a' is the Solar
+# System case: the Moon-impact machinery does not apply (a planet is not
+# degraded by moonlight the way faint deep-sky nebulosity is), so it neither
+# rewards nor penalizes.
+_MOON_FACTOR = {
+    "none": 1.0,
+    "ok(NB)": 0.9,
+    "low": 0.8,
+    "med": 0.5,
+    "close": 0.4,
+    "high": 0.2,
+    "n/a": 1.0,
+}
 
 
 @dataclass(frozen=True)
@@ -71,6 +91,7 @@ class PlanRow:
     index: int  # position in the plan's target/ephemeris arrays
     name: str
     kind: str
+    classification: str  # nature: nebula/galaxy/.../planet/moon/sun
     const: str
     mag: float | None
     hours: float  # total usable hours
@@ -101,6 +122,13 @@ class NightPlan:
     vis: np.ndarray  # (n_targets, n_times) bool: above horizon and Moon-clear
     moon: MoonState
     rows: list[PlanRow]  # ranked by usable hours, descending
+
+
+def _solar_radius_map() -> dict[str, float]:
+    """Map every known Solar System ``body`` name to its equatorial radius."""
+    from harp.solar_system import SS_BODIES, SS_MOONS
+
+    return {b.body: b.radius_km for b in (*SS_BODIES, *SS_MOONS)}
 
 
 def longest_window(mask: np.ndarray) -> tuple[int, int, int]:
@@ -266,11 +294,40 @@ def plan_night(
         warnings.simplefilter("ignore")
         observer = Observer(location=site.location, timezone=site.tz)
         window = compute_night(observer, site.zoneinfo, date, grid_min)
-        alt, az = target_altaz(observer, window, targets)
-        moon = moon_state(site.location, observer, window, [t.coord for t in targets])
+        # Split fixed deep-sky objects (a single ICRS coord) from Solar System
+        # bodies (no fixed coord — position recomputed per grid sample). The
+        # two ephemeris paths are stitched back into the original target order
+        # so all downstream indexing (rows, curves, charts) is unaffected.
+        is_solar = np.array([t.body is not None for t in targets])
+        n_t = len(window.times)
+        alt = np.empty((len(targets), n_t))
+        az = np.empty((len(targets), n_t))
+        fixed = [t for t in targets if t.body is None]
+        solar = [t for t in targets if t.body is not None]
+        if fixed:
+            f_alt, f_az = target_altaz(observer, window, fixed)
+            alt[~is_solar], az[~is_solar] = f_alt, f_az
+        if solar:
+            s_alt, s_az = solar_altaz(site.location, window, [t.body for t in solar])
+            alt[is_solar], az[is_solar] = s_alt, s_az
+        # Moon separation only meaningful for fixed objects; SS bodies get a
+        # placeholder (large) separation so the min-sep filter never drops
+        # them (a planet 15 deg from the Moon is still a fine planet, and the
+        # Moon's separation to itself is 0).
+        moon = moon_state(
+            site.location, observer, window, [t.coord for t in fixed] if fixed else []
+        )
+
+    solar_radii = _solar_radius_map()
+    # Full-length arrays in original order: fixed rows use real Moon
+    # separation; SS rows use +inf so the min-sep cut is a no-op for them.
+    sep = np.full((len(targets), n_t), np.inf)
+    if fixed:
+        sep[~is_solar] = moon.sep
+    moon_up = moon.up  # (n_times,) shared across targets
 
     above = alt > horizon.altitude(az)
-    vis = above & (moon.sep > min_moon_sep)
+    vis = above & (sep > min_moon_sep)
     hours = vis.sum(axis=1) * window.dt_hours
     peak_i = np.array(
         [
@@ -285,22 +342,36 @@ def plan_night(
         peak_alt = float(np.where(win, alt[i], -90).max()) if win.any() else -90.0
         if hours[i] < min_hours or peak_alt < min_peak_alt:
             continue
-        sep_min = float(moon.sep[i][win].min())
-        up_frac = float(moon.up[win].mean()) if win.any() else 0.0
+        up_frac = float(moon_up[win].mean()) if win.any() else 0.0
         cw, cs, ce = longest_window(win)
         win_str = (
             f"{fmt_hm(window.times[cs], window.tz)}-{fmt_hm(window.times[ce], window.tz)}"
             if cw > 0
             else "--"
         )
-        frame = rig.framing(t.maj_arcmin, t.min_arcmin)
-        moon_verdict = moon_impact(t.narrowband, sep_min, up_frac, moon.illumination)
         cont_h = round(cw * window.dt_hours, 1)
+        if t.body is not None:
+            # Solar System body: live apparent disk, no mosaic/Moon-impact
+            # logic. The disk size flows into the FOV score so a tiny planet
+            # disk scores realistically for a deep-sky rig. Moon separation is
+            # not meaningful here (the Moon is itself one of these targets), so
+            # it is reported as 0 and the verdict carries the 'n/a' meaning.
+            maj = solar_apparent_arcmin(site.location, window, t.body, solar_radii[t.body])
+            frame = "planetary"
+            moon_verdict = "n/a"
+            sep_disp = 0.0
+        else:
+            maj = t.maj_arcmin
+            frame = rig.framing(t.maj_arcmin, t.min_arcmin)
+            sep_min = float(sep[i][win].min())
+            sep_disp = sep_min
+            moon_verdict = moon_impact(t.narrowband, sep_min, up_frac, moon.illumination)
         rows.append(
             PlanRow(
                 index=i,
                 name=t.name,
                 kind=t.kind,
+                classification=t.classification,
                 const=t.const,
                 mag=t.mag,
                 hours=round(float(hours[i]), 1),
@@ -309,7 +380,7 @@ def plan_night(
                 alt_max=round(peak_alt),
                 az_peak=round(float(az[i, peak_i[i]])),
                 peak_time=fmt_hm(window.times[peak_i[i]], window.tz),
-                moon_sep=round(sep_min),
+                moon_sep=round(sep_disp),
                 moon=moon_verdict,
                 frame=frame,
                 detail=suggest_detail(t.name) if frame.startswith("mosaic") else "",
@@ -319,7 +390,7 @@ def plan_night(
                         cont_hours=cont_h,
                         alt_max=peak_alt,
                         moon=moon_verdict,
-                        maj_arcmin=t.maj_arcmin,
+                        maj_arcmin=maj,
                         fov_long=rig.fov_long,
                     ),
                     1,

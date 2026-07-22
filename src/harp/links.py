@@ -74,13 +74,30 @@ def _aladin_link(target: Target) -> str:
     return f"https://aladin.cds.unistra.fr/AladinLite/?target={quote(coords)}&fov={fov_deg:.2f}"
 
 
+def _solar_link(target: Target, provider: str) -> str:
+    """Build a link for a Solar System body (no designation, no fixed coord).
+
+    These bodies have well-known names, so a name-based lookup is the most
+    useful; Aladin (coordinate-based) cannot point at a moving body without a
+    live ephemeris, so it falls back to the general search on each provider.
+    """
+    name = quote(target.name)
+    if provider == "wikipedia":
+        return f"https://en.wikipedia.org/wiki/{name}"
+    if provider == "astrobin":
+        return f"https://www.astrobin.com/search/?q={name}"
+    # simbad and aladin: SIMBAD resolves body names ('Mars', 'Jupiter').
+    return f"https://simbad.cds.unistra.fr/simbad/sim-id?Ident={name}"
+
+
 def target_link(target: Target, provider: str = "simbad") -> str:
     """Build an informative web link for a target.
 
     Parameters
     ----------
     target : Target
-        The object to link.
+        The object to link. Solar System bodies (``coord is None``) get a
+        name-based link, since they carry no designation or fixed coordinate.
     provider : str
         One of :data:`LINK_PROVIDERS`.
 
@@ -91,6 +108,8 @@ def target_link(target: Target, provider: str = "simbad") -> str:
     """
     if provider not in LINK_PROVIDERS:
         raise ValueError(f"unknown link provider {provider!r}: choose from {LINK_PROVIDERS}")
+    if target.body is not None or target.coord is None:
+        return _solar_link(target, provider)
     ident = _primary_ident(target)
     if ident is None or provider == "aladin":
         return _aladin_link(target)

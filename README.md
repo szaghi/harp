@@ -39,6 +39,10 @@
 <td><b>🔭 Offline catalogues + your own</b><br><sub>Curated large emission nebulae (deliberately <em>not</em> magnitude-filtered), full Messier/NGC/IC via <a href="https://github.com/mattiaverga/PyOngc">pyongc</a> (<code>--catalogs M,NGC,IC</code>), and a user targets file that overrides everything (<code>--targets</code>). Cross-identification dedup: M42 and NGC1976 are one object, M43 stays its own. No network at run time.</sub></td>
 <td><b>📈 Table, CSV, charts, links</b><br><sub>A ranked terminal table, a CSV for your session log — each target with an informative web link (SIMBAD, Wikipedia, AstroBin, or Aladin, built offline) — altitude charts with the horizon band overlaid, and <code>harp info TARGET</code> for details on demand.</sub></td>
 </tr>
+<tr>
+<td><b>🪐 Solar System targets</b><br><sub>The Moon and the eight planets are ranked alongside deep-sky objects (on by default, fully offline) — position and apparent disk recomputed for every step of the night, since they move. Moon-impact and mosaic columns show <code>n/a</code>/<code>planetary</code>; N.I.N.A. exports get a dusk snapshot. Major satellites are an online opt-in (<code>--ss-moons</code>). <a href="https://szaghi.github.io/harp/guide/usage#solar-system-targets">Solar System guide</a></sub></td>
+<td><b>🏷️ Target classification</b><br><sub>Every target carries its nature — <code>nebula</code>, <code>galaxy</code>, <code>cluster</code>, <code>planetary</code>, <code>star</code>, <code>planet</code>, <code>moon</code>, <code>sun</code> — surfaced in the table, CSV and JSON, and filterable: <code>--filter planet</code>, <code>--filter galaxy,cluster</code>. Note <code>planetary</code> (planetary <em>nebula</em>) stays distinct from <code>planet</code>. <a href="https://szaghi.github.io/harp/guide/usage#filtering-and-ordering">Filtering guide</a></sub></td>
+</tr>
 </table>
 </div>
 
@@ -54,6 +58,8 @@
 harp plan                                    # tonight, default site/optics from config
 harp plan 2026-08-15 --site balcony --optics newton800
 harp plan --catalogs M,NGC,IC --targets my_targets.yaml   # full catalog + your objects
+harp plan --filter planet                    # planets only (Moon + planets are on by default)
+harp plan --no-solar-system                  # deep-sky only, no Moon/planets
 harp plan --nina tonight.csv                 # export ranked targets for N.I.N.A.
 harp mosaic IC1396 --pa 30 --nina panels.csv # per-panel coords -> N.I.N.A. sequencer
 harp list                                    # sites and optics defined in the config
@@ -75,6 +81,11 @@ Field of view: 101' x 67'  |  horizon: balcony.hrz
  4 IC59/63 Ghost of Cas      99 Nebula    Cas     6.7  6.7  21:53-04:28    71  360     122   none  1 frame
  5 Sh2-155 Cave              98 Nebula    Cep     5.8  5.8  21:53-03:38    69    0     121   none  1 frame
 ```
+
+The Moon and planets are ranked in the same table (`kind` `Planet`/`Moon`,
+`Moon` verdict `n/a`, `frame` `planetary`) — on this night Uranus, Saturn,
+Mars and Neptune land further down the list; `--filter planet` isolates them,
+`--no-solar-system` drops them.
 
 ![Altitude charts](examples/altitude_charts.example.png)
 

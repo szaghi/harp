@@ -24,6 +24,10 @@ features:
     details: A 0-100 desirability score orders each night's candidates; one hopeless factor sinks a target.
   - title: N.I.N.A.-integrated
     details: Shares the .hrz horizon and exports ranked targets or mosaic panels straight into the sequencer.
+  - title: Solar System aware
+    details: The Moon and the eight planets are ranked alongside deep-sky objects (offline, on by default); positions recomputed live because they move.
+  - title: Classified and filterable
+    details: Every target carries its nature — nebula, galaxy, cluster, planet, moon, sun — surfaced in the output and filterable with --filter.
   - title: Offline and scriptable
     details: Curated + Messier/NGC/IC catalogs on disk, your own targets file on top; CLI output built for scripts.
 ---

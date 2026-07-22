@@ -17,7 +17,16 @@ from astropy.time import Time
 from harp.catalog import Target
 from harp.errors import EphemerisError
 
-__all__ = ["MoonState", "NightWindow", "compute_night", "fmt_hm", "moon_state", "target_altaz"]
+__all__ = [
+    "MoonState",
+    "NightWindow",
+    "compute_night",
+    "fmt_hm",
+    "moon_state",
+    "solar_altaz",
+    "solar_apparent_arcmin",
+    "target_altaz",
+]
 
 
 def fmt_hm(t: Time, tz: ZoneInfo) -> str:
@@ -112,6 +121,71 @@ def target_altaz(
     fixed = [FixedTarget(coord=t.coord, name=t.name) for t in targets]
     aa = observer.altaz(window.times, fixed, grid_times_targets=True)
     return aa.alt.to_value(u.deg), aa.az.to_value(u.deg)
+
+
+def solar_altaz(
+    location: EarthLocation, window: NightWindow, bodies: list[str]
+) -> tuple[np.ndarray, np.ndarray]:
+    """Altitude/azimuth of Solar System bodies on the night grid.
+
+    Unlike :func:`target_altaz`, position is recomputed per grid sample from
+    ``get_body`` — these bodies move relative to the fixed sky.
+
+    Parameters
+    ----------
+    location : astropy.coordinates.EarthLocation
+        Observing site.
+    window : NightWindow
+        The night grid.
+    bodies : list of str
+        ``get_body`` names, e.g. ``['moon', 'mars']``.
+
+    Returns
+    -------
+    (numpy.ndarray, numpy.ndarray)
+        ``alt`` and ``az`` in degrees, shape ``(len(bodies), n_times)``.
+        Empty ``(0, n_times)`` arrays when ``bodies`` is empty.
+    """
+    n_t = len(window.times)
+    if not bodies:
+        return np.empty((0, n_t)), np.empty((0, n_t))
+    frame = AltAz(obstime=window.times, location=location)
+    alt = np.empty((len(bodies), n_t))
+    az = np.empty((len(bodies), n_t))
+    for i, name in enumerate(bodies):
+        aa = get_body(name, window.times, location).transform_to(frame)
+        alt[i] = aa.alt.to_value(u.deg)
+        az[i] = aa.az.to_value(u.deg)
+    return alt, az
+
+
+def solar_apparent_arcmin(
+    location: EarthLocation, window: NightWindow, body: str, radius_km: float
+) -> float:
+    """Median apparent disk diameter of a Solar System body over the night.
+
+    The disk is distance- (hence time-) dependent; the median over the grid
+    is a stable single value for framing and reporting.
+
+    Parameters
+    ----------
+    location : astropy.coordinates.EarthLocation
+        Observing site (topocentric distance).
+    window : NightWindow
+        The night grid.
+    body : str
+        ``get_body`` name.
+    radius_km : float
+        Equatorial radius of the body.
+
+    Returns
+    -------
+    float
+        Median apparent diameter in arcminutes.
+    """
+    dist_km = get_body(body, window.times, location).distance.to_value(u.km)
+    diam_deg = np.degrees(2.0 * np.arctan(radius_km / dist_km))
+    return float(np.median(diam_deg) * 60.0)
 
 
 @dataclass(frozen=True)

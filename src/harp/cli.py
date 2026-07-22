@@ -136,8 +136,8 @@ def plan(
         None,
         "--filter",
         help="Comma-separated target filter: class tokens (nebula, galaxy, "
-        "cluster, planetary, star, other) are OR-ed; emission/non-emission "
-        "AND on top. E.g. 'galaxy,cluster' or 'emission,nebula'.",
+        "cluster, planetary, star, planet, moon, sun, other) are OR-ed; "
+        "emission/non-emission AND on top. E.g. 'galaxy,cluster' or 'planet'.",
     ),
     link_site: str | None = typer.Option(
         None,
@@ -148,6 +148,17 @@ def plan(
     no_plot: bool = typer.Option(False, "--no-plot", help="Do not draw the chart."),
     no_pyongc: bool = typer.Option(
         False, "--no-pyongc", help="Curated nebulae only (no Messier/NGC from pyongc)."
+    ),
+    solar_system: bool = typer.Option(
+        True,
+        "--solar-system/--no-solar-system",
+        help="Include Solar System bodies (Moon + planets, offline). On by default.",
+    ),
+    ss_moons: bool = typer.Option(
+        False,
+        "--ss-moons",
+        help="Also include major natural satellites (Titan, Galilean moons). "
+        "Requires a JPL satellite ephemeris downloaded at run time (online).",
     ),
     csv: str | None = typer.Option(None, help="Output CSV file."),
     png: str | None = typer.Option(None, help="Output PNG chart file."),
@@ -218,8 +229,14 @@ def plan(
             if targets is None and cfg_path and not targets_path.is_absolute():
                 targets_path = cfg_path.parent / targets_path
 
+        if ss_moons:
+            from harp.solar_system import load_moon_ephemeris
+
+            load_moon_ephemeris()
         target_list = build_targets(
             use_pyongc=not no_pyongc,
+            use_solar_system=solar_system,
+            ss_moons=ss_moons,
             pyongc_catalogs=_catalog_list(cfg, catalogs),
             mag_limit=pick(mag_limit, "mag_limit", cfg, DEFAULTS.mag_limit),
             targets_file=targets_path,
@@ -314,6 +331,13 @@ def mosaic(
         )
         t = _find_one_target(target, all_targets)
 
+        if t.body is not None:
+            raise _fail(
+                ValueError(
+                    f"{t.name} is a Solar System body (a moving point/disk): "
+                    "mosaics are for fixed deep-sky objects only"
+                )
+            )
         dims = rig.grid_dims(t.maj_arcmin, t.min_arcmin)
         if dims is None:
             raise _fail(ValueError(f"{t.name}: no size in catalog, cannot plan a mosaic"))
@@ -410,6 +434,20 @@ def info(
             print(json.dumps(info_to_dict(t, rig)))
             return
 
+        if t.body is not None:
+            # Solar System body: no fixed coordinate or catalog size (both are
+            # time-dependent and computed live by the planner).
+            print(t.name)
+            print(f"  classification: {t.classification}")
+            print(f"  kind         : {t.kind}")
+            print("  coordinates  : moving body — position computed per night")
+            print("  size         : apparent disk varies with distance")
+            print("  framing      : planetary (not a deep-sky framing target)")
+            print("  links:")
+            for provider in LINK_PROVIDERS:
+                print(f"    {provider:<10}: {target_link(t, provider)}")
+            return
+
         ra = t.coord.ra.to_string(unit=u.hourangle, sep="hms", precision=0, pad=True)
         dec = t.coord.dec.to_string(sep="dms", precision=0, alwayssign=True, pad=True)
         size = (
@@ -421,6 +459,7 @@ def info(
 
         print(t.name)
         print(f"  designations : {', '.join(sorted(t.idents)) or '(none)'}")
+        print(f"  classification: {t.classification}")
         print(f"  kind         : {t.kind}" + ("  [narrowband-friendly]" if t.narrowband else ""))
         print(f"  constellation: {t.const or '-'}")
         print(f"  coordinates  : {ra}  {dec}  (J2000)")
@@ -552,12 +591,8 @@ def _save_horizon_to_site(
         )
     else:
         if lat is None or lon is None:
-            raise _fail(
-                ValueError(f"new site '{slug}' needs --lat and --lon (and ideally --tz)")
-            )
-        entry = SiteEntry(
-            name=slug, label=name, lat=lat, lon=lon, elev=elev or 0.0, tz=tz or "UTC"
-        )
+            raise _fail(ValueError(f"new site '{slug}' needs --lat and --lon (and ideally --tz)"))
+        entry = SiteEntry(name=slug, label=name, lat=lat, lon=lon, elev=elev or 0.0, tz=tz or "UTC")
     store.upsert(entry, hrz_content=hrz_content, make_default=make_default)
     store.save()
     tag = " (default)" if store.default_name() == slug else ""
@@ -595,7 +630,9 @@ def sites_list(
         hp = store.hrz_path(site)
         has = "hrz" if hp and hp.exists() else "no-hrz"
         mark = "*" if n == default else " "
-        print(f"{mark} {n:<16} {site.label:<24} {site.lat:8.3f},{site.lon:8.3f}  {site.tz}  [{has}]")
+        print(
+            f"{mark} {n:<16} {site.label:<24} {site.lat:8.3f},{site.lon:8.3f}  {site.tz}  [{has}]"
+        )
 
 
 @sites_app.command("add")
@@ -620,9 +657,7 @@ def sites_add(
     try:
         store = SitesConfig.load(config, create=True)
         slug = slugify(name)
-        entry = SiteEntry(
-            name=slug, label=label or name, lat=lat, lon=lon, elev=elev, tz=tz
-        )
+        entry = SiteEntry(name=slug, label=label or name, lat=lat, lon=lon, elev=elev, tz=tz)
         content = Path(hrz).read_text() if hrz else None
         if hrz and not Path(hrz).exists():
             raise _fail(FileNotFoundError(f".hrz file not found: {hrz}"))

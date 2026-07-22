@@ -39,6 +39,15 @@ consumes `../../src` directly, so it can never drift from the CLI.
   single horizon lived in `cacheDir` and was lost to cache eviction / "Clear
   cache". Bridges: `sites_bridge.py` (store CRUD), `planner_bridge.py`,
   `wizard.py`.
+- **Core capability — Solar System + classification** (`harp.api`
+  `API_VERSION` 3): the shared core now ranks the Moon and the eight planets
+  alongside deep-sky objects (offline, on by default) and tags every target
+  with a `classification` (`nebula`/`galaxy`/.../`planet`/`moon`/`sun`).
+  Plan-row and target JSON gained `classification` and `body` fields
+  (additively — no existing field removed), and `ra_deg`/`dec_deg` are
+  `null` for moving bodies. A future planner-tab iteration can group or
+  filter by nature and badge Solar System rows; no app change is required to
+  keep working against the new surface.
 
 ## Building — two paths
 

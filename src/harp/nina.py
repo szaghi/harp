@@ -42,6 +42,20 @@ def _dms(coord: SkyCoord) -> str:
     return coord.dec.to_string(sep="dms", precision=0, alwayssign=True, pad=True)
 
 
+def _solar_dusk_coord(plan: NightPlan, body: str) -> SkyCoord:
+    """ICRS position of a Solar System body at the plan's dusk.
+
+    A moving body has no fixed J2000 coordinate; this is a single-instant
+    snapshot at dusk, transformed to ICRS so the ``(J2000)`` columns are
+    honest. It is stale by dawn and wrong on any other night — N.I.N.A. should
+    re-slew from its own ephemeris; the snapshot is only a placeholder so the
+    body still appears in the imported list.
+    """
+    from astropy.coordinates import get_body
+
+    return get_body(body, plan.window.dusk, plan.site.location).icrs
+
+
 def write_targets_csv(plan: NightPlan, path: str | Path, top: int | None = None) -> int:
     """Write the ranked plan as a N.I.N.A.-importable observing-list CSV.
 
@@ -57,10 +71,12 @@ def write_targets_csv(plan: NightPlan, path: str | Path, top: int | None = None)
     Returns
     -------
     int
-        Number of targets written.
+        Number of targets written. Solar System bodies are included with a
+        dusk-snapshot coordinate and a name marked ``(<date> dusk)``.
     """
     rows = plan.rows if top is None else plan.rows[:top]
     path = Path(path)
+    written = 0
     with path.open("w", newline="") as f:
         w = csv.writer(f)
         w.writerow(
@@ -74,9 +90,19 @@ def write_targets_csv(plan: NightPlan, path: str | Path, top: int | None = None)
         )
         for r in rows:
             t = plan.targets[r.index]
-            catalogue = min(t.idents) if t.idents else t.name
-            w.writerow([catalogue, t.name, _hms(t.coord), _dms(t.coord), ""])
-    return len(rows)
+            if t.coord is None:
+                # Solar System body: no fixed J2000 coordinate. Export a
+                # dusk snapshot, transformed to ICRS, with the name marked so
+                # it is clear the position is a single-instant placeholder
+                # (N.I.N.A. should re-slew from its own ephemeris).
+                coord = _solar_dusk_coord(plan, t.body)
+                name = f"{t.name} ({plan.window.day.isoformat()} dusk)"
+                w.writerow([t.name, name, _hms(coord), _dms(coord), ""])
+            else:
+                catalogue = min(t.idents) if t.idents else t.name
+                w.writerow([catalogue, t.name, _hms(t.coord), _dms(t.coord), ""])
+            written += 1
+    return written
 
 
 def write_mosaic_csv(target_name: str, panels: list[Panel], pa_deg: float, path: str | Path) -> int:

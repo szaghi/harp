@@ -120,6 +120,12 @@ def test_plan_nina_export_survives_real_parser(runner: CliRunner, tmp_path: Path
     back = SkyCoord(ra=trunk["ra"], dec=trunk["dec"], unit="deg", frame="icrs")
     assert back.separation(ref).arcsec < 10.0
 
+    # Solar System bodies are exported with a dusk snapshot and a marked name
+    # (the position is a placeholder; N.I.N.A. re-slews from its ephemeris).
+    snapshots = [n for n in imported if "dusk)" in n]
+    assert snapshots, "expected a Solar System dusk-snapshot row in the export"
+    assert any(n.startswith(("Mars", "Saturn", "Uranus", "Neptune")) for n in snapshots)
+
 
 def test_mosaic_cli_nina_option(runner: CliRunner, tmp_path: Path) -> None:
     out = tmp_path / "panels_nina.csv"
