@@ -17,7 +17,8 @@ def run_plan(request_json: str) -> str:
 
     Request keys: lat, lon, elev, tz (required); date (YYYY-MM-DD or ""),
     hrz_path (path or ""), focal_mm, sensor ('WxH' or preset), deep (bool),
-    mag_limit, top, solar_system (bool, default true), ss_moons (bool,
+    mag_limit, top, sharpless (bool, default true), sharpless_min_diam
+    (arcmin, default 10), solar_system (bool, default true), ss_moons (bool,
     default false — needs the JPL ephemeris, online).
     """
     t0 = time.perf_counter()
@@ -79,6 +80,8 @@ def run_plan(request_json: str) -> str:
             targets = build_targets(
                 pyongc_catalogs=catalogs,
                 mag_limit=float(req.get("mag_limit") or 11.0),
+                use_sharpless=bool(req.get("sharpless", True)),
+                sharpless_min_diam=float(req.get("sharpless_min_diam") or 10.0),
                 use_solar_system=use_solar_system,
                 ss_moons=ss_moons,
             )

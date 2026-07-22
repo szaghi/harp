@@ -27,7 +27,8 @@ consumes `../../src` directly, so it can never drift from the CLI.
 - **Phase 3 — planner tab** (0.2.0): `harp plan` on-device over
   `harp.api` — GPS site, the wizard's captured horizon picked up
   automatically, desirability-ranked rows, tap a target for its SIMBAD
-  page. Default catalog Messier+curated; NGC/IC behind a "deep" switch.
+  page. Default catalog Messier + Sharpless H II regions; NGC/IC behind a
+  "deep" switch.
 - **Phase 4 — saved sites** (0.3.0): multiple observatories persisted in a
   durable store under the app's `filesDir` (`sites.yaml` + one `.hrz` per
   site) through the shared `harp.sites` core — the **same** layout and
@@ -48,6 +49,12 @@ consumes `../../src` directly, so it can never drift from the CLI.
   `null` for moving bodies. A future planner-tab iteration can group or
   filter by nature and badge Solar System rows; no app change is required to
   keep working against the new surface.
+- **Core capability — Sharpless emission nebulae**: the shared core ships the
+  313 Sharpless (Sh2) H II regions and their measured sizes, correcting
+  OpenNGC's under-sized nebulae via a vendored Sh2↔NGC/IC/M concordance
+  (offline). The `planner_bridge` request accepts `sharpless` (bool) and
+  `sharpless_min_diam` (arcmin); the Plan tab drives them from a Settings
+  toggle, matching the CLI's `--sharpless` / `--sharpless-min-diam`.
 
 ## Building — two paths
 

@@ -149,6 +149,17 @@ def plan(
     no_pyongc: bool = typer.Option(
         False, "--no-pyongc", help="Curated nebulae only (no Messier/NGC from pyongc)."
     ),
+    sharpless: bool = typer.Option(
+        True,
+        "--sharpless/--no-sharpless",
+        help="Include the Sharpless (Sh2) H II regions and use their measured "
+        "sizes to correct pyongc's under-sized emission nebulae. On by default.",
+    ),
+    sharpless_min_diam: float | None = typer.Option(
+        None,
+        "--sharpless-min-diam",
+        help="Minimum Sharpless angular diameter to keep, arcmin (default 10).",
+    ),
     solar_system: bool = typer.Option(
         True,
         "--solar-system/--no-solar-system",
@@ -235,10 +246,12 @@ def plan(
             load_moon_ephemeris()
         target_list = build_targets(
             use_pyongc=not no_pyongc,
+            use_sharpless=sharpless,
             use_solar_system=solar_system,
             ss_moons=ss_moons,
             pyongc_catalogs=_catalog_list(cfg, catalogs),
             mag_limit=pick(mag_limit, "mag_limit", cfg, DEFAULTS.mag_limit),
+            sharpless_min_diam=pick(sharpless_min_diam, "sharpless_min_diam", cfg, 10.0),
             targets_file=targets_path,
         )
         filter_spec = pick(target_filter, "filter", cfg, None)

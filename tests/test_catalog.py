@@ -23,8 +23,10 @@ from harp.errors import CatalogError
 
 
 def test_curated_nebulae_well_formed() -> None:
+    # The curated list is now a small rescue set (objects the offline DBs
+    # cannot supply to the plan); everything else comes from pyongc + Sharpless.
     nebulae = curated_nebulae()
-    assert len(nebulae) == 31
+    assert nebulae
     for t in nebulae:
         assert t.kind == "Nebula"
         assert t.narrowband
@@ -71,13 +73,16 @@ def test_extract_idents() -> None:
 
 
 def test_dedup_by_cross_identity_and_m43_survives() -> None:
-    """Regression: curated M42 must eat pyongc NGC1976 (cross-id M042) but
-    NOT NGC1982 = M43, a distinct target 8 arcmin away."""
-    merged = dedup(curated_nebulae() + pyongc_targets(["M"], 11.0))
-    names = {t.name for t in merged}
-    assert "NGC1976" not in names  # M42 duplicate: eaten via cross-id
-    assert "NGC1982" in names  # M43: distinct target, must survive
-    assert "M42 Orion" in names  # curated entry wins
+    """Regression: a single pyongc object is not duplicated across its own
+    cross-ids, and M43 (NGC1982) stays distinct from M42 (NGC1976) 8' away."""
+    merged = dedup(pyongc_targets(["M"], 11.0))
+    idents = {i for t in merged for i in t.idents}
+    # M42 and M43 are distinct objects and both survive (not merged together)
+    assert "M42" in idents
+    assert "M43" in idents
+    # each appears exactly once (no self-duplication across NGC/M cross-ids)
+    m42_rows = [t for t in merged if "M42" in t.idents]
+    assert len(m42_rows) == 1
 
 
 def test_dedup_neighbors_beyond_radius_survive() -> None:

@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from astropy.coordinates import SkyCoord
 
-from harp.catalog import Target, curated_nebulae
+from harp.catalog import Target
 from harp.links import target_link
 
 
@@ -22,22 +22,40 @@ def _custom(name: str = "My Field", maj: float | None = 60) -> Target:
     )
 
 
+def _with_ident(ident: str) -> Target:
+    """A minimal fixed target carrying one normalized designation."""
+    return Target(
+        name=ident,
+        kind="Nebula",
+        const="",
+        mag=None,
+        maj_arcmin=30,
+        min_arcmin=None,
+        narrowband=True,
+        coord=SkyCoord(ra=100.0, dec=-5.0, unit="deg", frame="icrs"),
+        idents=frozenset({ident}),
+    )
+
+
 def test_simbad_link_uses_designation() -> None:
-    m42 = next(t for t in curated_nebulae() if "M42" in t.idents)
+    m42 = _with_ident("M42")
     assert target_link(m42, "simbad") == "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=M42"
 
 
 def test_wikipedia_messier_maps_to_full_title() -> None:
-    m42 = next(t for t in curated_nebulae() if "M42" in t.idents)
     # bare 'M42' on Wikipedia is a disambiguation page
-    assert target_link(m42, "wikipedia") == "https://en.wikipedia.org/wiki/Messier_42"
+    assert (
+        target_link(_with_ident("M42"), "wikipedia") == "https://en.wikipedia.org/wiki/Messier_42"
+    )
 
 
 def test_wikipedia_sharpless_and_ngc_styles() -> None:
-    tulip = next(t for t in curated_nebulae() if "SH2-101" in t.idents)
-    assert target_link(tulip, "wikipedia") == "https://en.wikipedia.org/wiki/Sh2-101"
-    na = next(t for t in curated_nebulae() if "NGC7000" in t.idents)
-    assert target_link(na, "wikipedia") == "https://en.wikipedia.org/wiki/NGC_7000"
+    assert (
+        target_link(_with_ident("SH2-101"), "wikipedia") == "https://en.wikipedia.org/wiki/Sh2-101"
+    )
+    assert (
+        target_link(_with_ident("NGC7000"), "wikipedia") == "https://en.wikipedia.org/wiki/NGC_7000"
+    )
 
 
 def test_designationless_target_falls_back_to_aladin() -> None:

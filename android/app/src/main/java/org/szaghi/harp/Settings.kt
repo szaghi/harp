@@ -43,6 +43,12 @@ data class AppSettings(
     // Include Solar System bodies (Moon + planets) in the plan; on by default,
     // matching the CLI.
     val solarSystem: Boolean = true,
+    // Include the Sharpless (Sh2) H II regions and their measured sizes; on by
+    // default, matching the CLI.
+    val sharpless: Boolean = true,
+    // Minimum Sharpless angular diameter to keep, arcmin (matches the CLI's
+    // --sharpless-min-diam; drops tiny/compact H II regions).
+    val sharplessMinDiam: Float = 10f,
 )
 
 class SettingsRepo(private val context: Context) {
@@ -63,6 +69,8 @@ class SettingsRepo(private val context: Context) {
         val NIGHT_VISION = booleanPreferencesKey("night_vision")
         val INDOOR_THEME = stringPreferencesKey("indoor_theme")
         val SOLAR_SYSTEM = booleanPreferencesKey("solar_system")
+        val SHARPLESS = booleanPreferencesKey("sharpless")
+        val SHARPLESS_MIN_DIAM = floatPreferencesKey("sharpless_min_diam")
     }
 
     val flow: Flow<AppSettings> = context.dataStore.data.map { p ->
@@ -83,6 +91,8 @@ class SettingsRepo(private val context: Context) {
             nightVision = p[NIGHT_VISION] ?: false,
             indoorTheme = p[INDOOR_THEME] ?: DEFAULT_INDOOR_THEME,
             solarSystem = p[SOLAR_SYSTEM] ?: true,
+            sharpless = p[SHARPLESS] ?: true,
+            sharplessMinDiam = p[SHARPLESS_MIN_DIAM] ?: 10f,
         )
     }
 

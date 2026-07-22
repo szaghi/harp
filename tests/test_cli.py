@@ -74,6 +74,8 @@ def test_plan_smoke(runner: CliRunner, tmp_path: Path) -> None:
             str(EXAMPLES / "sites.yaml"),
             "--no-pyongc",
             "--no-plot",
+            "--top",
+            "100",
             "--csv",
             str(csv_out),
         ],
@@ -206,6 +208,8 @@ def test_plan_with_user_targets(runner: CliRunner, tmp_path: Path) -> None:
             str(f),
             "--no-pyongc",
             "--no-plot",
+            "--top",
+            "100",
             "--csv",
             str(tmp_path / "out.csv"),
         ],
@@ -266,13 +270,14 @@ def test_mosaic_command(runner: CliRunner, tmp_path: Path) -> None:
 
 
 def test_mosaic_single_frame_target(runner: CliRunner) -> None:
-    result = runner.invoke(app, ["mosaic", "NGC6888", "--config", str(EXAMPLES / "sites.yaml")])
+    result = runner.invoke(app, ["mosaic", "M27", "--config", str(EXAMPLES / "sites.yaml")])
     assert result.exit_code == 0, result.output
     assert "single frame" in result.output
 
 
 def test_mosaic_ambiguous_query(runner: CliRunner) -> None:
-    result = runner.invoke(app, ["mosaic", "Veil", "--config", str(EXAMPLES / "sites.yaml")])
+    # 'IC13' is a substring of both IC1318 and IC1396 (default build)
+    result = runner.invoke(app, ["mosaic", "IC13", "--config", str(EXAMPLES / "sites.yaml")])
     assert result.exit_code == 1
     assert "ambiguous" in result.output
 

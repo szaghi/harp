@@ -97,6 +97,8 @@ def test_plan_nina_export_survives_real_parser(runner: CliRunner, tmp_path: Path
             str(EXAMPLES / "sites.yaml"),
             "--no-pyongc",
             "--no-plot",
+            "--top",
+            "100",
             "--csv",
             str(tmp_path / "t.csv"),
             "--nina",

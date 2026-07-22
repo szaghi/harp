@@ -149,7 +149,10 @@ def test_ss_moons_ephemeris_error_is_typed(monkeypatch) -> None:
 
 
 def test_plan_places_solar_system(runner: CliRunner) -> None:
-    result = runner.invoke(app, [*PLAN_ARGS, "--no-plot", "--json"])
+    # --top 300: the Sharpless catalogue makes the plan large, and Solar
+    # System bodies rank below the default display cutoff — assert against the
+    # full ranked set, not the truncated table.
+    result = runner.invoke(app, [*PLAN_ARGS, "--no-plot", "--top", "300", "--json"])
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
     rows = data["rows"]

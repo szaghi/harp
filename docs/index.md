@@ -29,5 +29,5 @@ features:
   - title: Classified and filterable
     details: Every target carries its nature — nebula, galaxy, cluster, planet, moon, sun — surfaced in the output and filterable with --filter.
   - title: Offline and scriptable
-    details: Curated + Messier/NGC/IC catalogs on disk, your own targets file on top; CLI output built for scripts.
+    details: Messier/NGC/IC + the Sharpless H II regions (with measured sizes) on disk, your own targets file on top; CLI output built for scripts.
 ---

@@ -130,6 +130,16 @@ fun SettingsScreen(vm: SettingsViewModel) {
                 "off" to !s.solarSystem,
             ),
         ) { vm.set(SettingsRepo.SOLAR_SYSTEM, it == "included") }
+        Label("Sharpless (Sh2) emission nebulae")
+        ChipRow(
+            listOf(
+                "included" to s.sharpless,
+                "off" to !s.sharpless,
+            ),
+        ) { vm.set(SettingsRepo.SHARPLESS, it == "included") }
+        NumField("Sharpless min diam (arcmin)", s.sharplessMinDiam, Modifier.fillMaxWidth()) {
+            if (it >= 0f) vm.set(SettingsRepo.SHARPLESS_MIN_DIAM, it)
+        }
 
         Section("Target links (tap on a plan row)")
         ChipRow(

@@ -14,7 +14,9 @@ PLAN_ARGS = ["plan", "2026-08-15", "--config", str(EXAMPLES / "sites.yaml"), "--
 
 
 def test_plan_json_shape(runner: CliRunner) -> None:
-    result = runner.invoke(app, [*PLAN_ARGS, "--no-plot", "--json"])
+    # --top 300: with the Sharpless catalogue the plan is large and Solar
+    # System bodies rank below the default cutoff; assert on the full set.
+    result = runner.invoke(app, [*PLAN_ARGS, "--no-plot", "--top", "300", "--json"])
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
     assert data["api_version"] == "3"

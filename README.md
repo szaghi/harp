@@ -36,7 +36,7 @@
 <td><b>🎯 N.I.N.A. integration</b><br><sub>The same <code>.hrz</code> horizon drives both tools, and <code>--nina</code> exports ranked targets or mosaic panels as CSVs N.I.N.A.'s sequencer imports directly — verified against N.I.N.A.'s actual parser source. Plan in HARP, shoot in N.I.N.A., retype nothing. <a href="https://szaghi.github.io/harp/guide/usage#nina-integration">N.I.N.A. guide</a></sub></td>
 </tr>
 <tr>
-<td><b>🔭 Offline catalogues + your own</b><br><sub>Curated large emission nebulae (deliberately <em>not</em> magnitude-filtered), full Messier/NGC/IC via <a href="https://github.com/mattiaverga/PyOngc">pyongc</a> (<code>--catalogs M,NGC,IC</code>), and a user targets file that overrides everything (<code>--targets</code>). Cross-identification dedup: M42 and NGC1976 are one object, M43 stays its own. No network at run time.</sub></td>
+<td><b>🔭 Offline catalogues + your own</b><br><sub>Full Messier/NGC/IC via <a href="https://github.com/mattiaverga/PyOngc">pyongc</a> (<code>--catalogs M,NGC,IC</code>) with magnitude-less emission nebulae kept (ranked by size, not magnitude), the 313 Sharpless H&nbsp;II regions with their measured sizes correcting OpenNGC's under-sized nebulae (the Heart is 150' not 60'), and a user targets file that overrides everything (<code>--targets</code>). Cross-identification dedup: M42 and NGC1976 are one object, M43 stays its own. No network at run time.</sub></td>
 <td><b>📈 Table, CSV, charts, links</b><br><sub>A ranked terminal table, a CSV for your session log — each target with an informative web link (SIMBAD, Wikipedia, AstroBin, or Aladin, built offline) — altitude charts with the horizon band overlaid, and <code>harp info TARGET</code> for details on demand.</sub></td>
 </tr>
 <tr>

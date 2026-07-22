@@ -60,8 +60,36 @@ harp plan --catalogs NGC --mag-limit 10
 ```
 
 The offline OpenNGC database holds ~14k NGC/IC objects; `--mag-limit`
-(default 11.0) applies to these, never to the curated nebulae. The config
-key `catalogs` (string or list) sets a default.
+(default 11.0) applies to these. Emission nebulae with **no** magnitude
+(most H II regions) are kept regardless of the cut — surface brightness,
+not magnitude, is what matters for them. The config key `catalogs` (string
+or list) sets a default.
+
+## Emission nebulae (Sharpless)
+
+The Sharpless (Sh2) catalogue of 313 H II regions ships with HARP and is on
+by default. It does two jobs:
+
+```bash
+harp plan                            # Sharpless included (default)
+harp plan --no-sharpless             # OpenNGC + curated only
+harp plan --sharpless-min-diam 60    # only the largest H II regions
+```
+
+1. **Coverage** — it adds the large emission nebulae OpenNGC lacks (OpenNGC
+   is NGC/IC only and carries no Sharpless designations).
+2. **Accurate sizes** — OpenNGC's nebula dimensions come from the LBN
+   bright-plate table and often under-report the imageable H-alpha extent
+   (the Heart shows 60' in OpenNGC vs ~150' in reality). Via a vendored
+   Sh2↔NGC/IC/M concordance, HARP adopts the Sharpless-measured extent for
+   the matching OpenNGC object, so framing and the field-of-view score use
+   the real size. The override is guarded (emission types only, at most a 4x
+   enlargement) so an embedded cluster or planetary never inherits a whole
+   region's diameter.
+
+Everything is on disk — the catalogue and the concordance are vendored, no
+network at run time. (They are regenerated from VizieR/SIMBAD only by the
+maintainer, via `tools/build_*.py`.)
 
 ## Solar System targets
 
@@ -295,9 +323,11 @@ optics:
 - Run after midnight, `harp plan` targets the night STARTING on that calendar
   date (the following evening); pass the previous day's date for the night in
   progress.
-- pyongc objects are filtered by V magnitude; large emission nebulae often
-  have none, which is why the curated internal catalogue exists (and is never
-  magnitude-filtered).
+- OpenNGC objects are filtered by V magnitude, but emission nebulae with no
+  magnitude are kept anyway (ranked by size/surface brightness). The Sharpless
+  catalogue supplies the emission nebulae OpenNGC lacks and corrects its
+  under-sized ones; a small built-in rescue list covers the handful neither
+  database can place.
 - Solar System bodies carry no magnitude (phase-dependent); their apparent
   disk is derived live from the body's distance at each time step. HARP ranks
   them on visibility only — it flags *when* a planet is up, not lucky-imaging

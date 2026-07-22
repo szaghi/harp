@@ -8,9 +8,12 @@ status.
 ## Layout
 
 - `src/harp/` — package sources (src layout; import only works installed):
-  `horizon.py` (.hrz mask + builder), `catalog.py` (curated nebulae +
-  pyongc + target classification), `solar_system.py` (Moon + planets as
-  moving targets, offline; satellites gated behind an online kernel),
+  `horizon.py` (.hrz mask + builder), `catalog.py` (pyongc + curated
+  rescue + target classification), `sharpless.py` (Sh2 H II regions +
+  Sh2<->NGC/IC/M size-override concordance, vendored SQLite/JSON in
+  `data/`; rebuilt by `tools/build_*.py`), `solar_system.py` (Moon +
+  planets as moving targets, offline; satellites gated behind an online
+  kernel),
   `optics.py` (rig FOV/mosaic), `ephemeris.py` (darkness window,
   alt-az, Moon, Solar System alt-az + apparent size), `planner.py`
   (orchestration -> NightPlan; splits fixed vs moving bodies), `report.py`

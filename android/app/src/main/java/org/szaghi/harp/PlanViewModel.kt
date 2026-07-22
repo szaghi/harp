@@ -127,6 +127,8 @@ class PlanViewModel(app: Application) : AndroidViewModel(app) {
                     put("catalogs", s.catalogs)
                     put("link_site", s.linkSite)
                     put("solar_system", s.solarSystem)
+                    put("sharpless", s.sharpless)
+                    put("sharpless_min_diam", s.sharplessMinDiam.toDouble())
                 }
                 try {
                     PyBridge.py.getModule("planner_bridge")

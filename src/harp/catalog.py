@@ -1,9 +1,22 @@
-"""Deep-sky target catalog: curated large nebulae + optional pyongc objects.
+"""Deep-sky target catalog: pyongc + Sharpless, with a small curated rescue.
 
-The curated list exists because the pyongc catalogue is filtered by V
-magnitude, and many large emission nebulae have no integrated magnitude at
-all (surface brightness is what matters): a magnitude cut would drop exactly
-the targets this planner is for.
+Targets are assembled and deduplicated from several offline sources
+(:func:`build_targets`):
+
+- **pyongc** (OpenNGC): Messier/NGC/IC. Emission nebulae frequently have no
+  integrated magnitude — surface brightness, not magnitude, is what matters —
+  so magnitude-less objects of an emission type are kept regardless of the
+  magnitude cut (a naive cut would drop exactly the targets this planner is
+  for). OpenNGC's nebula *sizes* come from the LBN bright-plate table and
+  often under-report the imageable H-alpha extent.
+- **Sharpless** (Sh2 H II regions, :mod:`harp.sharpless`): the emission
+  nebulae OpenNGC lacks, and — via a vendored Sh2<->NGC/IC/M concordance —
+  the measured extent used to correct pyongc's under-sized nebulae
+  (:func:`_apply_sharpless_sizes`).
+- a small hand-curated **rescue list** (``_NEBULAE``) for the handful of
+  emission nebulae the databases still cannot deliver to the plan.
+
+All sources are on disk; no network at run time.
 """
 
 from __future__ import annotations
@@ -33,6 +46,11 @@ __all__ = [
 
 # Catalogs pyongc can enumerate offline.
 PYONGC_CATALOGS = ("M", "NGC", "IC")
+
+# Max factor by which a Sharpless diameter may enlarge a pyongc nebula size
+# (see _apply_sharpless_sizes): guards an embedded knot from adopting a whole
+# Sharpless-complex diameter.
+_SH2_MAX_ENLARGE = 4.0
 
 # OpenNGC types whose objects are emission-line sources: narrowband filters
 # reject moonlit continuum for these, so the Moon-impact verdict is relaxed.
@@ -146,40 +164,32 @@ def _extract_idents(name: str) -> frozenset[str]:
     return frozenset(idents)
 
 
-# Curated large-nebula catalogue (RA, Dec J2000, maj', min', const, Halpha?)
+# Curated rescue list (RA, Dec J2000, maj', min', const, Halpha?).
 # Sizes in arcminutes; Halpha=True -> great in narrowband (dual-band filter).
+#
+# This used to be a 31-object hand-maintained catalogue. It is now reduced to
+# only the emission nebulae that the offline databases genuinely cannot supply
+# to the ranked plan:
+#   - Simeis 147, IC1318: no NGC/IC/M designation at all (absent from pyongc);
+#   - Rosette, Jellyfish, Tadpoles, Ghost of Cas: present in pyongc but dropped
+#     by positional dedup against a coincident bare Sharpless region, and with
+#     no Messier alias to survive the tie;
+#   - IC1396 (Elephant Trunk): pyongc reports the small central cluster (14'),
+#     and its Sharpless region (Sh2-131) has no concordance link to correct it,
+#     so the true ~170' extent must be curated.
+# Everything else now comes from pyongc (magnitude-less emission objects are no
+# longer dropped) with Sharpless-measured sizes applied via the Sh2 concordance
+# (see _apply_sharpless_sizes). Nicknames for those come from OpenNGC where it
+# has them; a bare designation otherwise (the ranking is size/position-driven,
+# not name-driven).
 _NEBULAE: list[tuple[str, str, str, float, float, str, bool]] = [
-    ("NGC7000 North America", "20h59m17s", "+44d31m00s", 120, 100, "Cyg", True),
-    ("IC5070 Pelican", "20h50m48s", "+44d21m00s", 60, 50, "Cyg", True),
     ("IC1318 Sadr/Gamma Cyg", "20h22m00s", "+40d15m00s", 150, 120, "Cyg", True),
-    ("NGC6888 Crescent", "20h12m07s", "+38d21m00s", 18, 12, "Cyg", True),
-    ("Sh2-101 Tulip", "19h59m54s", "+35d16m00s", 16, 9, "Cyg", True),
-    ("NGC6960 Veil-West", "20h45m38s", "+30d43m00s", 70, 6, "Cyg", True),
-    ("NGC6992 Veil-East", "20h56m19s", "+31d43m00s", 60, 8, "Cyg", True),
-    ("IC5146 Cocoon", "21h53m29s", "+47d16m00s", 12, 12, "Cyg", True),
-    ("IC1396 Elephant Trunk", "21h39m00s", "+57d30m00s", 170, 140, "Cep", True),
-    ("Sh2-155 Cave", "22h57m54s", "+62d31m00s", 50, 30, "Cep", True),
-    ("NGC7380 Wizard", "22h47m21s", "+58d06m00s", 25, 25, "Cep", True),
-    ("Sh2-171 NGC7822", "00h03m36s", "+67d09m00s", 60, 30, "Cep", True),
-    ("NGC7635 Bubble", "23h20m48s", "+61d12m00s", 15, 8, "Cas", True),
-    ("IC1805 Heart", "02h33m22s", "+61d27m00s", 150, 150, "Cas", True),
-    ("IC1848 Soul", "02h55m24s", "+60d25m00s", 150, 75, "Cas", True),
-    ("NGC281 Pacman", "00h52m48s", "+56d37m00s", 35, 30, "Cas", True),
-    ("Sh2-132 Lion", "22h19m00s", "+56d05m00s", 40, 30, "Cep", True),
     ("IC59/63 Ghost of Cas", "00h56m42s", "+61d04m00s", 20, 10, "Cas", True),
-    ("NGC1499 California", "04h03m18s", "+36d25m00s", 145, 40, "Per", True),
-    ("IC405 Flaming Star", "05h16m12s", "+34d16m00s", 37, 19, "Aur", True),
+    ("IC1396 Elephant Trunk", "21h39m00s", "+57d30m00s", 170, 140, "Cep", True),
     ("IC410 Tadpoles", "05h22m36s", "+33d31m00s", 40, 30, "Aur", True),
-    ("IC417 Spider", "05h28m06s", "+34d25m00s", 13, 13, "Aur", True),
     ("Simeis147 Spaghetti", "05h39m00s", "+28d00m00s", 180, 180, "Tau", True),
-    ("M42 Orion", "05h35m17s", "-05d23m00s", 85, 60, "Ori", True),
     ("NGC2237 Rosette", "06h32m18s", "+05d03m00s", 80, 80, "Mon", True),
-    ("NGC2264 Cone/Xmas", "06h41m06s", "+09d53m00s", 40, 30, "Mon", True),
     ("IC443 Jellyfish", "06h17m42s", "+22d47m00s", 50, 40, "Gem", True),
-    ("M27 Dumbbell", "19h59m36s", "+22d43m00s", 8, 6, "Vul", True),
-    ("M8 Lagoon", "18h03m37s", "-24d23m00s", 90, 40, "Sgr", True),
-    ("M16 Eagle/Pillars", "18h18m48s", "-13d47m00s", 35, 28, "Ser", True),
-    ("M17 Omega", "18h20m47s", "-16d10m00s", 46, 37, "Sgr", True),
 ]
 
 # For targets too big for one frame: what to shoot as a single-frame detail.
@@ -209,7 +219,11 @@ def suggest_detail(name: str) -> str:
 
 
 def curated_nebulae() -> list[Target]:
-    """Return the curated large-nebulae catalogue (no magnitude filter)."""
+    """Return the small curated rescue list (see ``_NEBULAE``).
+
+    Only the emission nebulae the offline databases cannot otherwise deliver
+    to the plan; everything else comes from pyongc + Sharpless.
+    """
     return [
         Target(
             name=nm,
@@ -234,12 +248,18 @@ def pyongc_targets(catalogs: list[str], mag_limit: float) -> list[Target]:
     emission-line sources (planetaries, supernova remnants, HII regions)
     get a relaxed Moon-impact verdict; everything else stays broadband.
 
+    Emission-type objects with NO magnitude are kept regardless of the cut:
+    surface brightness, not magnitude, is what matters for them, and dropping
+    them would discard large classics (NGC281 Pacman, NGC1499 California).
+
     Parameters
     ----------
     catalogs : list of str
         pyongc catalog names, e.g. ``['M']`` or ``['M', 'NGC']``.
     mag_limit : float
-        Keep only objects with visual (or blue) magnitude <= this.
+        Keep only objects with visual (or blue) magnitude <= this. Applies to
+        non-emission types only; magnitude-less emission objects are always
+        kept.
 
     Raises
     ------
@@ -273,7 +293,16 @@ def pyongc_targets(catalogs: list[str], mag_limit: float) -> list[Target]:
             if obj.type in _EXCLUDED_TYPES:
                 continue
             mv = vis_mag(obj.magnitudes)
-            if mv is None or mv > mag_limit:
+            # Emission nebulae (H II regions, planetaries, SNRs...) frequently
+            # have NO integrated magnitude — surface brightness, not magnitude,
+            # is what matters. Keep those regardless of the cut; magnitude
+            # filtering applies only to types where magnitude is meaningful.
+            # This is why large classics (NGC281 Pacman, NGC1499 California)
+            # need no hand-curated entry.
+            if obj.type in _NARROWBAND_TYPES:
+                if mv is not None and mv > mag_limit:
+                    continue
+            elif mv is None or mv > mag_limit:
                 continue
             dims = obj.dimensions or (None, None, None)
             try:
@@ -290,7 +319,9 @@ def pyongc_targets(catalogs: list[str], mag_limit: float) -> list[Target]:
                         name=obj.name,
                         kind=obj.type,
                         const=obj.constellation,
-                        mag=round(mv, 1),
+                        # mv is None for magnitude-less emission nebulae (now
+                        # admitted): round() would raise and silently drop them.
+                        mag=round(mv, 1) if mv is not None else None,
                         maj_arcmin=dims[0],
                         min_arcmin=dims[1],
                         narrowband=obj.type in _NARROWBAND_TYPES,
@@ -495,24 +526,35 @@ def find_targets(query: str, targets: list[Target]) -> list[Target]:
 def build_targets(
     use_nebulae: bool = True,
     use_pyongc: bool = True,
+    use_sharpless: bool = True,
     use_solar_system: bool = True,
     ss_moons: bool = False,
     pyongc_catalogs: list[str] | None = None,
     mag_limit: float = 11.0,
+    sharpless_min_diam: float = 10.0,
     targets_file: str | Path | None = None,
 ) -> list[Target]:
     """Assemble the final target list, deduplicated across sources.
 
-    Source priority for duplicates: user targets > curated nebulae > pyongc.
-    Solar System bodies carry no designation and no fixed coordinate, so they
-    are appended after dedup — they never collide with a deep-sky object.
+    Source priority for duplicates: user targets > curated nebulae >
+    Sharpless > pyongc. Solar System bodies carry no designation and no fixed
+    coordinate, so they are appended after dedup — they never collide with a
+    deep-sky object.
+
+    The curated nebulae rank above Sharpless on purpose: a hand-tuned entry
+    (nickname, imaging size, e.g. ``Sh2-101 Tulip``) wins over the bare
+    catalogue ``Sh2-101`` via the shared ``SH2-N`` identifier, so the nickname
+    survives while Sharpless supplies the ~180 emission nebulae the curated
+    list never had.
 
     Parameters
     ----------
     use_nebulae : bool
-        Include the curated large-nebulae catalogue.
+        Include the small curated rescue list (:func:`curated_nebulae`).
     use_pyongc : bool
         Include pyongc objects (offline Messier/NGC/IC).
+    use_sharpless : bool
+        Include the Sharpless (Sh2) H II regions (offline emission nebulae).
     use_solar_system : bool
         Include the Solar System bodies (Moon + planets, offline).
     ss_moons : bool
@@ -522,7 +564,11 @@ def build_targets(
     pyongc_catalogs : list of str or None
         pyongc catalog names among ``M``/``NGC``/``IC``; defaults to ``['M']``.
     mag_limit : float
-        Magnitude limit applied to pyongc objects only.
+        Magnitude limit applied to pyongc objects only. Sharpless H II regions
+        have no magnitude and are never magnitude-filtered.
+    sharpless_min_diam : float
+        Minimum Sharpless angular diameter to keep, arcmin (drops tiny/compact
+        H II regions that are not deep-sky imaging targets).
     targets_file : str, pathlib.Path or None
         Optional user-defined targets file (see :func:`user_targets`).
     """
@@ -531,11 +577,78 @@ def build_targets(
         items += user_targets(targets_file)
     if use_nebulae:
         items += curated_nebulae()
+    # pyongc BEFORE Sharpless: a catalogued NGC/IC/M object (richer metadata,
+    # cross-ids, a name) must win a positional dedup tie over the bare Sharpless
+    # region at the same spot (e.g. NGC281 Pacman == Sh2-184, 1.4' apart). The
+    # Sharpless *size* is still adopted afterwards via _apply_sharpless_sizes,
+    # so Sharpless acts as a size authority without stealing identity; its
+    # objects that have NO NGC/IC counterpart survive dedup on their own.
     if use_pyongc:
         items += pyongc_targets(pyongc_catalogs or ["M"], mag_limit)
+    if use_sharpless:
+        from harp.sharpless import sharpless_targets
+
+        items += sharpless_targets(min_diam_arcmin=sharpless_min_diam)
     result = dedup(items)
+    if use_sharpless:
+        result = _apply_sharpless_sizes(result)
     if use_solar_system:
         from harp.solar_system import solar_system_targets
 
         result += solar_system_targets(include_moons=ss_moons)
     return result
+
+
+def _apply_sharpless_sizes(targets: list[Target]) -> list[Target]:
+    """Override too-small pyongc nebula sizes with the Sharpless extent.
+
+    pyongc/OpenNGC nebula dimensions come from the LBN bright-plate table and
+    often under-report the imageable H-alpha extent (measured 2-12x too small
+    for e.g. the Heart, the Soul, the Lagoon). The Sharpless catalogue measures
+    the region's extent; via the vendored Sh2<->NGC/IC/M concordance we map an
+    NGC/IC/M object to its Sharpless number and, when Sharpless is larger,
+    adopt that diameter and mark the object narrowband (H II = emission).
+
+    Two guards keep the transfer honest, because a small catalogued object
+    (a cluster or a planetary nebula) can be embedded in a much larger
+    Sharpless region and must NOT inherit the whole region's size:
+
+    - **type gate**: only objects whose class is ``nebula`` are eligible, so
+      clusters (NGC2264) and planetary nebulae (NGC6302) are left untouched;
+    - **ratio cap**: the enlargement must be <= ``_SH2_MAX_ENLARGE`` (4x), so
+      an embedded knot does not adopt a whole-complex diameter.
+
+    Only enlarges — never shrinks — and drops the minor axis (Sharpless gives
+    a single max diameter).
+    """
+    from dataclasses import replace
+
+    from harp.sharpless import sh2_concordance, sharpless_sizes
+
+    concord = sh2_concordance()
+    if not concord:
+        return targets
+    sizes = sharpless_sizes()
+    # reverse map: NGC/IC/M ident -> best Sharpless diameter linked to it
+    override: dict[str, float] = {}
+    for sh2_num, designations in concord.items():
+        diam = sizes.get(f"SH2-{sh2_num}")
+        if diam is None:
+            continue
+        for desig in designations:
+            key = _norm_ident(desig)
+            override[key] = max(override.get(key, 0.0), diam)
+
+    out: list[Target] = []
+    for t in targets:
+        hit = next((override[i] for i in t.idents if i in override), None)
+        eligible = (
+            hit is not None
+            and kind_class(t.kind) == "nebula"
+            and (t.maj_arcmin is None or (t.maj_arcmin < hit <= t.maj_arcmin * _SH2_MAX_ENLARGE))
+        )
+        if eligible:
+            out.append(replace(t, maj_arcmin=hit, min_arcmin=None, narrowband=True))
+        else:
+            out.append(t)
+    return out

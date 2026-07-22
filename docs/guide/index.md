@@ -8,8 +8,8 @@ free-horizon profile, and the Moon status, HARP ranks the objects best
 placed for imaging that night — and hands the result to your capture suite:
 mosaic panel coordinates and N.I.N.A.-importable target lists included.
 
-Targets span the deep sky (curated nebulae, Messier/NGC/IC, your own
-objects) **and the Solar System** (the Moon and the eight planets, ranked
+Targets span the deep sky (Messier/NGC/IC, the Sharpless H II regions, your
+own objects) **and the Solar System** (the Moon and the eight planets, ranked
 live alongside them). Each target is classified by nature — nebula, galaxy,
 cluster, planetary nebula, star, planet, moon, sun — and can be filtered on
 it.
