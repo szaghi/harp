@@ -288,6 +288,13 @@ def plan_night(
     NightPlan
         Ranked rows plus the full ephemeris arrays for charting.
     """
+    # Hard offline guarantee: never let astropy phone home for fresh IERS
+    # Earth-orientation data. The bundled IERS-B table is ample for
+    # minute-level planning, and this keeps the CLI as network-free as the
+    # Android bridge (which sets the same flag).
+    from astropy.utils import iers
+
+    iers.conf.auto_download = False
     # astropy/astroplan warn on IERS staleness and non-strict twilight
     # convergence; neither affects minute-level planning.
     with warnings.catch_warnings():
