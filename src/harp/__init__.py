@@ -9,4 +9,4 @@ from __future__ import annotations
 
 # Version mirror — pyproject.toml is the canonical source; release.sh keeps
 # both in sync.
-__version__ = "0.1.5"
+__version__ = "0.2.0"

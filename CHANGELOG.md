@@ -4,6 +4,29 @@ All notable changes to HARP are documented here.
 Versions follow [Semantic Versioning](https://semver.org/).
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.0] — 2026-07-22
+### Added
+- **android**: Settings tab with persisted configuration and about
+
+- Target filtering by class/emission and new sort orders
+
+- Shared multi-site store for CLI and Android app
+
+- Solar System targets and per-target nature classification
+
+- **android**: Dark theme system with red night-vision mode
+
+- **android**: Reach Solar System + classification parity with the CLI
+
+- Sharpless emission-nebula catalogue with measured sizes
+
+- **android**: Polar-alignment compass, graded Moon scoring, common names
+
+
+### Fixed
+- **planner**: Disable IERS auto-download to guarantee offline planning
+
+
 ## [0.1.5] — 2026-07-19
 ### Added
 - **links**: Informative web links per target and `harp info` command
