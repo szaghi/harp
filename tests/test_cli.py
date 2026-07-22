@@ -300,8 +300,20 @@ def test_sites_add_list_setdefault_remove(runner: CliRunner, tmp_path: Path) -> 
     cfg = str(tmp_path / "sites.yaml")
     r = runner.invoke(
         app,
-        ["sites", "add", "Balcony", "--lat", "41.7", "--lon", "12.9",
-         "--tz", "Europe/Rome", "--config", cfg, "--default"],
+        [
+            "sites",
+            "add",
+            "Balcony",
+            "--lat",
+            "41.7",
+            "--lon",
+            "12.9",
+            "--tz",
+            "Europe/Rome",
+            "--config",
+            cfg,
+            "--default",
+        ],
     )
     assert r.exit_code == 0, r.output
     assert "balcony" in r.output  # slugified
@@ -342,8 +354,21 @@ def test_horizon_save_site(runner: CliRunner, tmp_path: Path) -> None:
     cfg = str(tmp_path / "sites.yaml")
     r = runner.invoke(
         app,
-        ["horizon", str(pts), "--save-site", "Balcony", "--config", cfg,
-         "--lat", "41.7", "--lon", "12.9", "--tz", "Europe/Rome", "--default"],
+        [
+            "horizon",
+            str(pts),
+            "--save-site",
+            "Balcony",
+            "--config",
+            cfg,
+            "--lat",
+            "41.7",
+            "--lon",
+            "12.9",
+            "--tz",
+            "Europe/Rome",
+            "--default",
+        ],
     )
     assert r.exit_code == 0, r.output
     assert (tmp_path / "balcony.hrz").exists()
