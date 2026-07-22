@@ -123,6 +123,13 @@ fun SettingsScreen(vm: SettingsViewModel) {
             "curated large nebulae are always included; mag limit applies to catalog objects",
             style = MaterialTheme.typography.bodySmall,
         )
+        Label("Solar System (Moon + planets)")
+        ChipRow(
+            listOf(
+                "included" to s.solarSystem,
+                "off" to !s.solarSystem,
+            ),
+        ) { vm.set(SettingsRepo.SOLAR_SYSTEM, it == "included") }
 
         Section("Target links (tap on a plan row)")
         ChipRow(

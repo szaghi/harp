@@ -40,6 +40,9 @@ data class AppSettings(
     // pick); indoorTheme is the chosen indoor palette id (see INDOOR_THEMES).
     val nightVision: Boolean = false,
     val indoorTheme: String = DEFAULT_INDOOR_THEME,
+    // Include Solar System bodies (Moon + planets) in the plan; on by default,
+    // matching the CLI.
+    val solarSystem: Boolean = true,
 )
 
 class SettingsRepo(private val context: Context) {
@@ -59,6 +62,7 @@ class SettingsRepo(private val context: Context) {
         val SELECTED_SITE = stringPreferencesKey("selected_site")
         val NIGHT_VISION = booleanPreferencesKey("night_vision")
         val INDOOR_THEME = stringPreferencesKey("indoor_theme")
+        val SOLAR_SYSTEM = booleanPreferencesKey("solar_system")
     }
 
     val flow: Flow<AppSettings> = context.dataStore.data.map { p ->
@@ -78,6 +82,7 @@ class SettingsRepo(private val context: Context) {
             selectedSite = p[SELECTED_SITE] ?: "",
             nightVision = p[NIGHT_VISION] ?: false,
             indoorTheme = p[INDOOR_THEME] ?: DEFAULT_INDOOR_THEME,
+            solarSystem = p[SOLAR_SYSTEM] ?: true,
         )
     }
 

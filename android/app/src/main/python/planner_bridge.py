@@ -17,7 +17,8 @@ def run_plan(request_json: str) -> str:
 
     Request keys: lat, lon, elev, tz (required); date (YYYY-MM-DD or ""),
     hrz_path (path or ""), focal_mm, sensor ('WxH' or preset), deep (bool),
-    mag_limit, top.
+    mag_limit, top, solar_system (bool, default true), ss_moons (bool,
+    default false — needs the JPL ephemeris, online).
     """
     t0 = time.perf_counter()
     try:
@@ -66,9 +67,20 @@ def run_plan(request_json: str) -> str:
                 for c in str(req.get("catalogs") or "M").split(",")
                 if c.strip()
             ]
+            # Solar System bodies (Moon + planets) are on by default, matching
+            # the CLI; the app may turn them off or opt into satellites, which
+            # need the JPL ephemeris loaded first (online).
+            use_solar_system = bool(req.get("solar_system", True))
+            ss_moons = bool(req.get("ss_moons") or False)
+            if ss_moons:
+                from harp.solar_system import load_moon_ephemeris
+
+                load_moon_ephemeris()
             targets = build_targets(
                 pyongc_catalogs=catalogs,
                 mag_limit=float(req.get("mag_limit") or 11.0),
+                use_solar_system=use_solar_system,
+                ss_moons=ss_moons,
             )
             plan = plan_night(
                 site=site,

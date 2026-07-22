@@ -126,6 +126,7 @@ class PlanViewModel(app: Application) : AndroidViewModel(app) {
                     put("grid_min", s.gridMin)
                     put("catalogs", s.catalogs)
                     put("link_site", s.linkSite)
+                    put("solar_system", s.solarSystem)
                 }
                 try {
                     PyBridge.py.getModule("planner_bridge")
@@ -161,7 +162,12 @@ class PlanViewModel(app: Application) : AndroidViewModel(app) {
                             moon = r.getString("moon"),
                             frame = r.getString("frame"),
                             link = r.getString("link"),
-                            kindClass = r.optString("class", "other"),
+                            // 'classification' is authoritative (explicit for
+                            // Solar System bodies); 'class' is the legacy alias.
+                            kindClass = r.optString(
+                                "classification",
+                                r.optString("class", "other"),
+                            ),
                             narrowband = r.optBoolean("narrowband", false),
                         )
                     )

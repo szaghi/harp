@@ -5,6 +5,8 @@ import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -36,6 +38,7 @@ import androidx.compose.ui.unit.dp
  * wizard's captured horizon, ranked by the same desirability score.
  * Tap a target to open its info link (SIMBAD) in the browser.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PlanScreen(vm: PlanViewModel, sitesVm: SitesViewModel) {
     val context = LocalContext.current
@@ -104,8 +107,11 @@ fun PlanScreen(vm: PlanViewModel, sitesVm: SitesViewModel) {
                     label = { Text("non-em") },
                 )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf("nebula", "galaxy", "cluster", "planetary").forEach { c ->
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                // Nature classes, matching the CLI --filter taxonomy. 'planet'
+                // and 'moon' cover the Solar System bodies; 'planetary' stays
+                // the (distinct) planetary-nebula class.
+                listOf("nebula", "galaxy", "cluster", "planetary", "planet", "moon").forEach { c ->
                     FilterChip(
                         selected = c in classFilter,
                         onClick = {
