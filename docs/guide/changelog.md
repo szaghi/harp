@@ -2,6 +2,11 @@
 title: Changelog
 ---
 
+## [0.3.2] — 2026-07-24
+### Added
+- **log**: Record and total what you actually imaged, CLI and app
+
+
 ## [0.3.1] — 2026-07-24
 ### Added
 - **planner**: Rank targets by sky contrast, not just magnitude
