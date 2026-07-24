@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    HARP launcher icon — BACKGROUND layer.
+
+    The night sky only: a vertical gradient from deep space at the top to the
+    lighter air near the horizon, plus the faint RA/Dec grid. Everything that
+    must stay legible (targets, telescope, ground) lives in the FOREGROUND
+    layer, because the launcher masks and parallax-shifts the two layers
+    independently.
+
+    The 108x108 viewport is the full adaptive-icon canvas. Sky and grid are
+    allowed to bleed to every edge — that is exactly the part which should be
+    croppable by whatever mask the launcher applies.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- sky: deep space -> horizon air -->
+    <path android:pathData="M0,0h108v108h-108z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="54" android:startY="0"
+                android:endX="54" android:endY="108"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FF050912" />
+                <item android:offset="0.45" android:color="#FF0F1E42" />
+                <item android:offset="0.78" android:color="#FF22375F" />
+                <item android:offset="1.0" android:color="#FF4A5F8C" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!--
+        RA/Dec grid. This is what separates "pretty night sky" from "planning
+        tool" — the cheapest possible signal that the sky is computed. Kept
+        very low contrast so it reads as texture, never as lines competing
+        with the targets.
+    -->
+    <path android:strokeColor="#7AA2FF" android:strokeWidth="0.45"
+        android:strokeAlpha="0.22" android:pathData="M0,24h108" />
+    <path android:strokeColor="#7AA2FF" android:strokeWidth="0.45"
+        android:strokeAlpha="0.22" android:pathData="M0,44h108" />
+    <path android:strokeColor="#7AA2FF" android:strokeWidth="0.45"
+        android:strokeAlpha="0.22" android:pathData="M0,62h108" />
+    <path android:strokeColor="#7AA2FF" android:strokeWidth="0.45"
+        android:strokeAlpha="0.22" android:pathData="M22,0v82" />
+    <path android:strokeColor="#7AA2FF" android:strokeWidth="0.45"
+        android:strokeAlpha="0.22" android:pathData="M46,0v82" />
+    <path android:strokeColor="#7AA2FF" android:strokeWidth="0.45"
+        android:strokeAlpha="0.22" android:pathData="M70,0v82" />
+    <path android:strokeColor="#7AA2FF" android:strokeWidth="0.45"
+        android:strokeAlpha="0.22" android:pathData="M94,0v82" />
+</vector>

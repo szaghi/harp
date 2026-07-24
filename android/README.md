@@ -1,8 +1,39 @@
+<img src="../assets/harp-icon.svg" alt="HARP" width="96" height="96" align="right">
+
 # HARP Droid — Android frontend (experimental)
 
 A FOSS Android app on top of the shared `src/harp` Python core, embedded via
 [Chaquopy](https://chaquo.com/chaquopy/) (MIT). Same repo, same core: the app
 consumes `../../src` directly, so it can never drift from the CLI.
+
+## Launcher icon
+
+The app icon is an **adaptive icon**, composed by the launcher from two vector
+layers and then masked to whatever shape the OEM uses (circle, squircle,
+teardrop):
+
+| File | Layer |
+| --- | --- |
+| `app/src/main/res/drawable/ic_launcher_background.xml` | night-sky gradient + RA/Dec grid |
+| `app/src/main/res/drawable/ic_launcher_foreground.xml` | targets, transit arcs, ground, telescope |
+| `app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml` | adaptive-icon descriptor |
+| `app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml` | round variant (same layers) |
+
+No PNGs at any density — one vector serves every screen. Two constraints worth
+knowing before editing them:
+
+- **Safe zone.** The launcher scales the foreground 1.5x about the centre, so
+  only the middle 72x72 of the 108x108 canvas is guaranteed visible. The
+  artwork is authored in the full 108 space and wrapped in a single group that
+  maps it onto 18..90, which keeps the coordinates identical to the design
+  source while guaranteeing nothing is cropped.
+- **Colour hierarchy.** Ground `#04070E` < tube `#151C2E` < mount `#2A3348` <
+  counterweight `#3A4560`. An earlier revision drew the mount in the ground's
+  exact colour and the entire mount became invisible; do not collapse these.
+
+[`../assets/harp-icon.svg`](../assets/harp-icon.svg) is the same artwork as a
+plain SVG, used by the root README and the docs site. Change one, change the
+other.
 
 ## Status
 
@@ -66,6 +97,31 @@ consumes `../../src` directly, so it can never drift from the CLI.
   visibly indicated, and auto-releases after 30 s; it is hidden on devices
   with no gyroscope. Pure Kotlin (`CompassViewModel` / `CompassScreen`), no
   bridge, no `harp.api` change.
+- **Phase 6 — polar-alignment assistant** (`harp.api` `API_VERSION` 4): the
+  Compass tab splits into **1 · Coarse (sensors)** — the rose above, unchanged
+  — and **2 · Align (assistant)**, which reads the phone's live attitude and
+  gives azimuth/altitude corrections that drive the mount's polar axis onto the
+  refracted pole (the numbers go to zero as you turn the two bolts). This is
+  the AstroLock-style flow: the phone is the instrument measuring the axis, not
+  a lookup table. Scoped to ONE job — **rough-align in twilight before Polaris
+  is visible**, then hand off to N.I.N.A. TPPA. That rules out any capture or
+  calibration step (a reference against an invisible star is impossible), so
+  the correction is always absolute: computed pole minus current pointing. A
+  **bullseye** draws the error with the polar-scope field (~5°) as its inner
+  ring, so "close enough that Polaris will show in the eyepiece" is visible at
+  a glance. A **mounting toggle** selects the sensor frame — *Flat on tube*
+  (long edge along the axis; verified to need no axis remap) or *Back camera*
+  (the `(AXIS_X, AXIS_Z)` remap).
+
+  Only the pole altitude needs the Python core (`polar_bridge.run_polar` →
+  `harp.polar`): it applies **atmospheric refraction** (+2.7′ at latitude 20°,
+  +0.5′ at 65° above bare `|lat|`). The azimuth (0 N / 180 S) and all live
+  deltas are sensor-side. The stage states its real uncertainty (±1–2°
+  calibrated, "not trustworthy" when uncalibrated) rather than implying the
+  sub-degree precision competing apps advertise. `harp.polar` still provides
+  the full polar-scope reticle geometry (precession-correct separation, hour
+  angle, per-mount `MOUNTS` transform) as a library surface for other
+  frontends, though the app no longer draws a reticle clock.
 - **Core capability — Sharpless emission nebulae**: the shared core ships the
   313 Sharpless (Sh2) H II regions and their measured sizes, correcting
   OpenNGC's under-sized nebulae via a vendored Sh2↔NGC/IC/M concordance
@@ -182,6 +238,17 @@ With adb connected, live Python tracebacks beat screenshots:
 3. Check the declination shown matches your site (~+4° in central Italy).
 4. Walk the skyline, add vertices at every profile change, export, and
    diff the shared `.hrz` against your hand-made `balcony.hrz`.
+5. *Compass* tab → stage **1 · Coarse**: needs a **magnetometer**; the gyro
+   hold additionally needs a **gyroscope** and hides itself without one.
+   Calibrate with a figure-8 and check the stated uncertainty changes with
+   the calibration state.
+6. *Compass* tab → stage **2 · Align**: needs a GPS fix (pole altitude =
+   latitude). Pick the mounting that matches your holder, then confirm the
+   bullseye dot moves the RIGHT way — swing the mount east and the dot must
+   move left (the pole is now to the west), raise the altitude bolt and the dot
+   must move down. A dot that runs the wrong way means the mounting toggle is
+   set to the other geometry. The shown pole altitude should sit ~1′ **above**
+   your bare latitude (refraction).
 
 ## Capture procedure (field-tested)
 

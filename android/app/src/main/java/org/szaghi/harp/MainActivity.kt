@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -49,17 +49,27 @@ private data class TabItem(val label: String, val icon: ImageVector)
 @Composable
 fun HarpApp() {
     var tab by remember { mutableIntStateOf(0) }
-    // Tab order is deliberate: Horizon (set the site) -> Plan (pick targets) ->
-    // Compass (align) -> Settings. Only the SELECTED tab shows its label (and
-    // takes the leftover width so it never wraps); the rest are icon-only and
-    // shrink to their glyph, so the bar stays legible as more tabs are added.
-    // Icons are material-icons-CORE (no -extended artifact the app avoids),
-    // except the compass rose which is a hand-built vector (see CompassRoseIcon)
-    // because core has no compass glyph.
+    // Tab order is deliberate and matches the workflow: Home (the dashboard the
+    // app lands on) -> Horizon (set the site) -> Plan (pick targets) -> Align
+    // (put the mount on the pole) -> Settings. Only the SELECTED tab shows its
+    // label (and takes the leftover width so it never wraps); the rest are
+    // icon-only and shrink to their glyph, so the bar stays legible as more
+    // tabs are added.
+    //
+    // Icons are material-icons-CORE (the app avoids the multi-MB -extended
+    // artifact), except two hand-built vectors: the compass rose
+    // (CompassRoseIcon) and the skyline (HorizonIcon). The latter replaced a
+    // map pin, which said "a location" rather than "the profile of what blocks
+    // your sky".
+    //
+    // "Align" covers both of that tab's stages — the sensor compass and the
+    // polar-alignment assistant — and is short enough never to clip as the
+    // selected label; the fuller names live on the stage switch inside.
     val tabs = listOf(
-        TabItem("Horizon", Icons.Filled.Place),
+        TabItem("Home", Icons.Filled.Home),
+        TabItem("Horizon", HorizonIcon),
         TabItem("Plan", Icons.AutoMirrored.Filled.List),
-        TabItem("Compass", CompassRoseIcon),
+        TabItem("Align", CompassRoseIcon),
         TabItem("Settings", Icons.Filled.Settings),
     )
     // Settings are hoisted here so the chosen theme wraps the whole app and
@@ -100,10 +110,11 @@ fun HarpApp() {
                     }
                 }
                 when (tab) {
-                    0 -> HorizonScreen(viewModel<HorizonViewModel>(), sitesVm)
-                    1 -> PlanScreen(viewModel<PlanViewModel>(), sitesVm)
-                    2 -> CompassScreen(viewModel<CompassViewModel>())
-                    3 -> SettingsScreen(settingsVm)
+                    0 -> HomeScreen(viewModel<HomeViewModel>()) { tab = it }
+                    1 -> HorizonScreen(viewModel<HorizonViewModel>(), sitesVm)
+                    2 -> PlanScreen(viewModel<PlanViewModel>(), sitesVm)
+                    3 -> CompassScreen(viewModel<CompassViewModel>())
+                    4 -> SettingsScreen(settingsVm)
                 }
             }
         }

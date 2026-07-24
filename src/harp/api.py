@@ -8,6 +8,7 @@ else in the package is internal and may change freely.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from harp.catalog import (
@@ -24,20 +25,27 @@ from harp.links import LINK_PROVIDERS, target_link
 from harp.mosaic import Panel, mosaic_panels
 from harp.optics import Rig, parse_sensor
 from harp.planner import NightPlan, PlanRow, Site, desirability, plan_night
+from harp.polar import MOUNTS, Mount, ReticleFix, reticle_position
 from harp.sites import SiteEntry, SitesConfig, default_config_path, slugify
 
 # 2: added the multi-site store (SitesConfig/SiteEntry) and site JSON helpers.
 # 3: Solar System targets (Target.body/coord=None) and the target
 #    classification field, both surfaced additively in every converter.
-API_VERSION = "3"
+# 4: polar alignment (polar_align_to_dict, MOUNTS/Mount/ReticleFix) for the
+#    Android alignment tab's polar-scope stage. Purely additive -- every
+#    existing converter and signature is unchanged.
+API_VERSION = "4"
 
 __all__ = [
     "API_VERSION",
     "FILTER_TOKENS",
+    "MOUNTS",
     "Horizon",
+    "Mount",
     "NightPlan",
     "Panel",
     "PlanRow",
+    "ReticleFix",
     "Rig",
     "Site",
     "SiteEntry",
@@ -52,10 +60,13 @@ __all__ = [
     "info_to_dict",
     "kind_class",
     "mosaic_panels",
+    "mounts_to_dict",
     "panels_to_dict",
     "parse_sensor",
     "plan_night",
     "plan_to_dict",
+    "polar_align_to_dict",
+    "reticle_position",
     "site_to_dict",
     "slugify",
     "target_link",
@@ -254,3 +265,87 @@ def info_to_dict(t: Target, rig: Rig) -> dict[str, Any]:
     d["frame"] = "planetary" if t.body is not None else rig.framing(t.maj_arcmin, t.min_arcmin)
     d["links"] = {provider: target_link(t, provider) for provider in LINK_PROVIDERS}
     return d
+
+
+def polar_align_to_dict(
+    when_utc: datetime,
+    lat: float,
+    lon: float,
+    *,
+    mount: str = "generic",
+    pressure_hpa: float = 1010.0,
+    temp_c: float = 10.0,
+) -> dict[str, Any]:
+    """JSON-safe polar-alignment solution for the app's alignment tab.
+
+    Carries BOTH stages of the alignment. ``pole_az`` / ``pole_alt_true`` are
+    the coarse sensor targets (pure geometry, no ephemeris); the reticle
+    fields are the fine polar-scope stage and are the reason this call exists
+    in Python at all -- they need precession and sidereal time.
+
+    ``pole_alt_true`` and ``pole_alt_refracted`` are both reported so the
+    frontend can show the coarse target without silently implying that a
+    magnetometer resolves the ~1 arcmin refraction difference between them.
+
+    Parameters
+    ----------
+    when_utc : datetime.datetime
+        Instant of observation (UTC).
+    lat, lon : float
+        Observer latitude and longitude in degrees (longitude EAST positive).
+    mount : str
+        Polar-scope reticle convention; see :data:`harp.polar.MOUNTS`.
+    pressure_hpa, temp_c : float
+        Atmospheric conditions for the refraction correction.
+
+    Returns
+    -------
+    dict
+        Alignment payload, including ``mount_verified`` so the UI can caveat
+        an unconfirmed vendor reticle rather than present it as fact.
+
+    Raises
+    ------
+    harp.errors.EphemerisError
+        If ``mount`` is unknown or the latitude is out of range.
+    """
+    fix: ReticleFix = reticle_position(
+        when_utc, lat, lon, mount=mount, pressure_hpa=pressure_hpa, temp_c=temp_c
+    )
+    northern = lat >= 0.0
+    return {
+        "api_version": API_VERSION,
+        # coarse stage: where to swing the mount with the phone compass
+        "pole_az": 0.0 if northern else 180.0,
+        "pole_alt_true": round(abs(lat), 4),
+        "pole_alt_refracted": round(fix.pole_altitude_deg, 4),
+        "northern": northern,
+        # fine stage: where the pole star sits in the polar scope
+        "pole_star": "Polaris" if northern else "sigma Octantis",
+        "hour_angle_deg": round(fix.hour_angle_deg, 4),
+        "polaris_sep_arcmin": round(fix.separation_arcmin, 3),
+        "position_angle_deg": round(fix.position_angle_deg, 4),
+        "reticle_angle_deg": round(fix.reticle_angle_deg, 4),
+        "polaris_clock": fix.clock,
+        # reticle convention actually applied
+        "mount": mount,
+        "mount_label": fix.mount.label,
+        "mirrored": fix.mount.mirrored,
+        "mount_verified": fix.mount.verified,
+    }
+
+
+def mounts_to_dict() -> dict[str, Any]:
+    """JSON-safe list of the known polar-scope reticle conventions."""
+    return {
+        "api_version": API_VERSION,
+        "mounts": [
+            {
+                "key": key,
+                "label": m.label,
+                "mirrored": m.mirrored,
+                "verified": m.verified,
+            }
+            for key, m in MOUNTS.items()
+        ],
+    }

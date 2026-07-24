@@ -22,6 +22,43 @@ harp plan 2026-08-15 \
 default. Without a `.hrz` (neither CLI nor config), a flat 0-degree horizon
 is assumed.
 
+### All `plan` options
+
+`harp plan --help` is authoritative; this is the same set, grouped by what it
+does.
+
+| Option | Effect |
+| --- | --- |
+| `--config` | Sites/optics file. Default: `sites.yaml`/`.yml`/`.json` in the cwd, then `~/.config/harp/`. |
+| `--site`, `--optics` | Pick named entries from the config. |
+| `--lat`, `--lon`, `--elev`, `--tz`, `--label` | Define a site inline; longitude is East-positive. |
+| `--hrz` | Horizon file (true north). Without one, a flat 0° horizon. |
+| `--focal`, `--sensor` | Rig. `--sensor` takes a preset name or `WxH` in mm. |
+| `--catalogs` | Which pyongc catalogues: `M`, `NGC`, `IC` (default `M`). |
+| `--targets` | Your own targets file, merged with priority over the catalogues. |
+| `--mag-limit` | Magnitude cutoff for pyongc objects. |
+| `--no-pyongc` | Curated nebulae only — skip Messier/NGC entirely. |
+| `--sharpless` / `--no-sharpless` | Include the Sh2 H II regions and their measured sizes. On by default. |
+| `--sharpless-min-diam` | Drop Sh2 regions smaller than this, arcmin (default 10). |
+| `--solar-system` / `--no-solar-system` | Include the Moon and planets. On by default. |
+| `--ss-moons` | Add the major moons — needs the JPL ephemeris, so this one is **online**. |
+| `--moon-sep` | Minimum Moon separation to keep a target, degrees. |
+| `--min-hours` | Minimum usable hours to keep a target. |
+| `--filter` | Class tokens OR-ed (`nebula`, `galaxy`, `cluster`, `planetary`, `star`, `planet`, `moon`, `sun`, `other`), with `emission`/`non-emission` AND-ed on top. |
+| `--sort` | `score` (default), `hours`, `alt`, or `name`. |
+| `--top` | How many rows to show on screen. |
+| `--csv`, `--png`, `--nina` | Write the table, the chart, and the N.I.N.A. import. |
+| `--no-plot` | Skip drawing the chart entirely. |
+| `--json` | Emit the whole plan as JSON on stdout instead of a table — the scripting surface. |
+| `--link-site` | Provider for the `link` column: `simbad` (default), `wikipedia`, `astrobin`, `aladin`. |
+| `--save-site`, `--default`, `--keep-hrz` | Save the inline site into the config (see below). |
+
+::: tip Everything is offline except one flag
+`--ss-moons` is the sole exception: it downloads a JPL ephemeris. Every other
+option — catalogues, Sharpless, Solar System planets, ephemerides — works with
+no network at all.
+:::
+
 ## Saved sites (multiple observatories)
 
 A *site* bundles a location and its horizon: label, lat/lon/elev, timezone,
@@ -317,6 +354,138 @@ optics:
     focal:  800
     sensor: "23.5x15.7"   # or a preset name
 ```
+
+## Polar alignment
+
+The Android companion's *Compass* tab is built for one workflow: **rough-align
+the mount during twilight, while Polaris is still invisible**, closely enough
+that Polaris lands in the polar scope when it rises — then refine with
+**N.I.N.A. TPPA**. That is the whole scope. It does not attempt the arcminute
+job, because a phone compass cannot do it and TPPA already does it well.
+
+Two stages, kept apart because they are used differently: stage 1 is the
+free-standing compass (phone in hand, find the pole by eye), stage 2 is the
+assistant (phone fixed to the mount, turn the bolts).
+
+### Stage 1 — Coarse (phone sensors)
+
+A live true-north compass rose with the celestial pole marked, driving a
+"turn N° left/right, tilt N° up/down" delta. The pole needs no ephemeris: it
+sits due north (or south) at an altitude equal to your latitude.
+
+**This stage is worth ±1–2° at best**, and only after a good figure-8
+calibration — that is the phone magnetometer's floor, and no amount of sensor
+fusion moves it. Apps advertising ±0.1° from a phone compass are quoting a
+filter's internal repeatability, not absolute pointing truth: a Kalman filter
+suppresses noise, it does not remove the hard/soft-iron bias that dominates
+here. The stage is honest about this on screen, and degrades its claim when
+the magnetometer reports poor calibration.
+
+That is still enough to put the pole inside a polar scope's field, which is
+all stage 1 is for.
+
+A **gyro hold** button latches the heading while the phone is calibrated and
+clear of the mount, then propagates it on the gyroscope alone as you walk the
+phone in — so the mount's steel cannot pull the reading. It preserves a good
+heading; it cannot rescue a bad one.
+
+### Stage 2 — Align (assistant)
+
+The phone is fixed to the mount, and the app reads its **live attitude** to
+give azimuth/altitude corrections that drive the mount's polar axis onto the
+pole — the numbers go to zero as you turn the two adjustment bolts. The pole
+altitude it targets includes **atmospheric refraction** (the apparent pole
+sits above the true one by +2.7′ at latitude 20°, +1.1′ at 42°, +0.8′ at 52°
+and +0.5′ at 65° — small but one-sided) computed by the astronomical core; the
+pole azimuth is pure geometry (due north, or south below the equator).
+
+A **bullseye** shows the same information visually: the centre is the pole, the
+dot is where your polar axis points now, and you drive the dot to the centre.
+The inner ring is a typical polar-scope field (~5°) — once the dot is inside
+it, Polaris will appear in the polar scope when it rises. Right/left on the
+bullseye is azimuth, up/down is altitude, matching the two bolts.
+
+There is deliberately **no capture or calibration step**. A reference taken
+against a star you cannot see yet is impossible, and one taken against nothing
+is meaningless, so the correction is always absolute: the computed pole minus
+where the phone points now.
+
+Tell the app how the phone sits on the mount — this is a sensor-frame choice,
+not a calibration:
+
+- **Flat on tube** — the phone lies on the tube (or any flat face) with its
+  long edge along the polar axis.
+- **Back camera** — the phone is clamped so its back camera looks down the
+  polar axis.
+
+::: tip Why the phone compass is good enough here
+The correction is only as good as the phone magnetometer — **±1–2°** after a
+good figure-8 calibration, and *not trustworthy at all* when the calibration
+state is poor (the assistant says so on screen). But a polar scope's field is
+5–8°, so ±1–2° reliably puts Polaris in the eyepiece — which is the entire job
+of this stage. The arcminute work belongs to **N.I.N.A. TPPA** once Polaris is
+visible. Any app claiming ±0.1° from a phone compass is quoting a filter's
+internal repeatability, not absolute pointing accuracy.
+:::
+
+From Python, the underlying pole geometry (refracted altitude, and the
+polar-scope reticle position, for other frontends) is available offline:
+
+```python
+from datetime import UTC, datetime
+
+from harp.api import polar_align_to_dict
+
+polar_align_to_dict(datetime.now(UTC), 41.9, 12.5, mount="skywatcher")
+```
+
+## Scripting: JSON and the Python API
+
+Three commands emit machine-readable output — `harp plan --json`,
+`harp info --json`, `harp mosaic --json`. Every payload carries an
+`api_version` field so a consumer can detect a breaking change:
+
+```bash
+harp plan 2026-08-15 --json | jq '.rows[0] | {name, score, window}'
+```
+
+For anything beyond the CLI, import `harp.api`. It is the **supported**
+surface — everything else in the package is internal and may change without
+notice:
+
+```python
+from harp.api import Horizon, Rig, Site, build_targets, plan_night, plan_to_dict
+
+site = Site(label="Balcony", lat=41.9, lon=12.5, elev=100, tz="Europe/Rome")
+rig = Rig(focal_mm=800, sensor_name="APS-C", sensor_w_mm=23.5, sensor_h_mm=15.7)
+plan = plan_night(
+    site=site,
+    rig=rig,
+    horizon=Horizon.from_hrz("balcony.hrz"),
+    targets=build_targets(pyongc_catalogs=["M"]),
+    date="2026-08-15",
+)
+print(plan_to_dict(plan)["rows"][0]["name"])
+```
+
+What the surface offers, by area:
+
+| Area | Entry points |
+| --- | --- |
+| Planning | `plan_night`, `desirability`, `NightPlan`, `PlanRow`, `Site` |
+| Targets | `build_targets`, `find_targets`, `filter_targets`, `user_targets`, `kind_class`, `FILTER_TOKENS`, `Target` |
+| Optics & mosaics | `Rig`, `parse_sensor`, `mosaic_panels`, `Panel` |
+| Horizon | `Horizon`, `build_profile`, `validate_profile`, `write_hrz` |
+| Saved sites | `SitesConfig`, `SiteEntry`, `default_config_path`, `slugify` |
+| Polar alignment | `polar_align_to_dict`, `reticle_position`, `MOUNTS`, `Mount`, `ReticleFix` |
+| JSON converters | `plan_to_dict`, `target_to_dict`, `info_to_dict`, `panels_to_dict`, `site_to_dict`, `mounts_to_dict` |
+| Links | `target_link` |
+
+::: info API stability
+Breaking changes to `harp.api` bump `API_VERSION` (currently **4**) and the
+package minor version. The Android app is built on this same surface, which is
+what keeps it from drifting away from the CLI.
+:::
 
 ## Notes and limits
 

@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  HARP official icon.
+
+  Canonical source for every non-Android surface: README, the VitePress site
+  (hero + favicon), and any release artwork. The Android launcher renders the
+  same artwork from res/drawable/ic_launcher_{background,foreground}.xml —
+  those are hand-maintained Android <vector> files, so if this composition
+  changes, change them too.
+
+  Composition: a Newtonian on a German equatorial mount silhouetted against a
+  night sky carrying three real deep-sky targets, each with its transit arc and
+  a reticle — the app is a DSO planner, so the sky is drawn as a working chart
+  (faint RA/Dec grid) rather than a decorative starfield.
+
+  Catalogue positions of the three targets:
+    M42  Orion Nebula   RA  5h35m  Dec -05°23'
+    Polaris             RA  2h31m  Dec +89°15'
+    M104 Sombrero       RA 12h40m  Dec -11°37'
+  They are never all above the horizon at once (Orion and M104 are ~7h apart
+  in RA); the arcs and grid are what make this read as a planner's target list
+  rather than a false snapshot of one sky.
+
+  Colour hierarchy (relative luminance) — do not collapse these values, an
+  earlier revision drew the mount in the ground's colour and it vanished:
+    ground        #04070E  0.0021
+    tube mouth    #080C18  0.0038
+    tube          #151C2E  0.0119
+    mount         #2A3348  0.0333
+    counterweight #3A4560  0.0600
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108"
+     width="108" height="108" role="img"
+     aria-label="HARP — a Newtonian telescope under a night sky with deep-sky targets">
+  <title>HARP</title>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#050912"/>
+      <stop offset="45%"  stop-color="#0F1E42"/>
+      <stop offset="78%"  stop-color="#22375F"/>
+      <stop offset="100%" stop-color="#4A5F8C"/>
+    </linearGradient>
+    <radialGradient id="m42" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#FFE9C4" stop-opacity=".95"/>
+      <stop offset="38%"  stop-color="#FF9EC4" stop-opacity=".6"/>
+      <stop offset="100%" stop-color="#B061C9" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="som" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#FFF6DC"/>
+      <stop offset="50%"  stop-color="#FFD79A" stop-opacity=".6"/>
+      <stop offset="100%" stop-color="#C9A0FF" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="frame"><rect width="108" height="108" rx="24"/></clipPath>
+  </defs>
+
+  <g clip-path="url(#frame)">
+    <rect width="108" height="108" fill="url(#sky)"/>
+
+    <!-- RA/Dec grid: the cheapest signal that the sky is computed, not decorative -->
+    <g stroke="#7AA2FF" stroke-width=".45" opacity=".22" fill="none">
+      <path d="M0 24h108M0 44h108M0 62h108"/>
+      <path d="M22 0v82M46 0v82M70 0v82M94 0v82"/>
+    </g>
+
+    <!-- field stars -->
+    <g fill="#FFFFFF" opacity=".5">
+      <circle cx="12" cy="30" r=".8"/><circle cx="98" cy="18" r=".9"/>
+      <circle cx="20" cy="58" r=".7"/><circle cx="88" cy="52" r=".8"/>
+    </g>
+
+    <!-- M104 Sombrero -->
+    <path d="M6 44q14-20 34-16" fill="none" stroke="#7AA2FF"
+          stroke-width=".8" stroke-dasharray="2.5 2.5" opacity=".7"/>
+    <g transform="rotate(-18 24 22)">
+      <ellipse cx="24" cy="22" rx="14" ry="6" fill="url(#som)" opacity=".75"/>
+      <ellipse cx="24" cy="22" rx="13" ry="3" fill="#EBD9FF" opacity=".9"/>
+      <ellipse cx="24" cy="22" rx="5" ry="3.4" fill="#FFF3D6"/>
+      <ellipse cx="24" cy="22.8" rx="13" ry=".9" fill="#060B18" opacity=".85"/>
+    </g>
+    <g stroke="#7AA2FF" stroke-width=".7" opacity=".85">
+      <path d="M24 13v3M24 28v3M11 22h3M34 22h3"/>
+    </g>
+    <text x="8" y="36" font-family="ui-monospace,SFMono-Regular,Menlo,monospace"
+          font-size="4" fill="#9FC0FF" opacity=".85">M104 12h40</text>
+
+    <!-- Polaris + Ursa Minor -->
+    <path d="M96 14a26 26 0 0 1-8 22" fill="none" stroke="#7AA2FF"
+          stroke-width=".8" stroke-dasharray="2.5 2.5" opacity=".65"/>
+    <path d="M88 16 80 26 74 34 79 41 86 36 88 16" fill="none"
+          stroke="#9FC0FF" stroke-width=".55" opacity=".45"/>
+    <circle cx="88" cy="16" r="2.6" fill="#FFFFFF"/>
+    <g stroke="#C0CAF5" stroke-width=".7" opacity=".8">
+      <path d="M88 9v3.4M88 19.6V23M81 16h3.4M91.6 16H95"/>
+    </g>
+    <g fill="#FFFFFF" opacity=".75">
+      <circle cx="80" cy="26" r="1.2"/><circle cx="74" cy="34" r="1.1"/>
+      <circle cx="79" cy="41" r="1.2"/><circle cx="86" cy="36" r="1"/>
+    </g>
+    <text x="74" y="10" font-family="ui-monospace,SFMono-Regular,Menlo,monospace"
+          font-size="4" fill="#9FC0FF" opacity=".85">2h31 +89°</text>
+
+    <!-- M42 / Orion: the primary target -->
+    <ellipse cx="58" cy="46" rx="13" ry="10" fill="url(#m42)"/>
+    <path d="M47 33 54 38 61 43" stroke="#CFE0FF" stroke-width="1" fill="none" opacity=".65"/>
+    <g fill="#FFFFFF">
+      <circle cx="47" cy="33" r="2.3"/>
+      <circle cx="54" cy="38" r="2.5"/>
+      <circle cx="61" cy="43" r="2.3"/>
+    </g>
+    <path d="M32 62q18-28 44-34" fill="none" stroke="#FFB454"
+          stroke-width="1.1" stroke-dasharray="3 2.5" opacity=".85"/>
+    <g stroke="#FFB454" stroke-width=".85" opacity=".95">
+      <path d="M54 28v3.6M54 44.4V48M44 38h3.6M60.4 38H64"/>
+    </g>
+    <text x="40" y="55" font-family="ui-monospace,SFMono-Regular,Menlo,monospace"
+          font-size="4.2" fill="#FFCE8A" opacity=".95">M42 5h35</text>
+
+    <!-- ground -->
+    <path d="M0 80 24 74 48 79 72 73 96 78 108 74v34H0z" fill="#0A1428" opacity=".92"/>
+    <path d="M0 90 26 86 54 91 82 87 108 91v17H0z" fill="#04070E"/>
+
+    <!-- Newtonian on a German equatorial mount -->
+    <g transform="rotate(-34 47 78)">
+      <!-- plain capped tube: no protruding end rings, no spider vanes -->
+      <rect x="24" y="68" width="39" height="16" rx="2.2" fill="#151C2E"/>
+      <!-- open mouth, inset into the tube end -->
+      <rect x="59.6" y="69.6" width="2.6" height="12.8" rx="1.1" fill="#080C18"/>
+      <!-- focuser: block flush to the tube wall + narrower drawtube -->
+      <rect x="49.5" y="64.4" width="8" height="4.2" rx="1" fill="#151C2E"/>
+      <rect x="51.6" y="62" width="3.8" height="3.2" rx=".9" fill="#151C2E"/>
+      <!-- dovetail saddle -->
+      <rect x="40" y="82.5" width="9" height="4.4" rx="1.2" fill="#2A3348"/>
+    </g>
+    <path d="M41.4 83.6h11l-1.4 7h-8.2z" fill="#2A3348"/>
+    <rect x="43.6" y="88.2" width="6.6" height="4.6" rx="1.2" fill="#2A3348"/>
+    <path d="M45.4 89.4 34.4 97.2" stroke="#2A3348" stroke-width="2.2"
+          stroke-linecap="round" fill="none"/>
+    <ellipse cx="33.6" cy="97.8" rx="4.1" ry="3.3" fill="#3A4560"/>
+    <ellipse cx="37" cy="95.4" rx="1.6" ry="1.4" fill="#3A4560"/>
+    <g stroke="#2A3348" stroke-linecap="round" fill="none">
+      <path d="M46.8 92.6 38.6 101.5" stroke-width="2.3"/>
+      <path d="M46.8 92.6 55.4 101.5" stroke-width="2.3"/>
+      <path d="M46.8 92.6 47.4 99.4" stroke-width="2.1"/>
+      <path d="M42.6 97h8.4" stroke-width="1.3" opacity=".9"/>
+    </g>
+  </g>
+</svg>

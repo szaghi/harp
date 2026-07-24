@@ -141,6 +141,23 @@ fun SettingsScreen(vm: SettingsViewModel) {
             if (it >= 0f) vm.set(SettingsRepo.SHARPLESS_MIN_DIAM, it)
         }
 
+        Section("Polar alignment (reticle refraction)")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            NumField("pressure hPa", s.pressureHpa, Modifier.weight(1f)) {
+                // sane surface-pressure band; reject typos, keep 0 (vacuum -> refraction off)
+                if (it == 0f || it in 850f..1085f) vm.set(SettingsRepo.PRESSURE_HPA, it)
+            }
+            NumField("temp °C", s.tempC, Modifier.weight(1f)) {
+                if (it in -60f..60f) vm.set(SettingsRepo.TEMP_C, it)
+            }
+        }
+        Text(
+            "refines the reticle-stage pole altitude by refraction — under 1 arcmin " +
+                "for realistic values, so the defaults are fine unless you are being " +
+                "fussy. Pressure 0 disables refraction.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+
         Section("Target links (tap on a plan row)")
         ChipRow(
             listOf("simbad", "wikipedia", "astrobin", "aladin").map { it to (s.linkSite == it) },

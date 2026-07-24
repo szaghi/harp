@@ -49,6 +49,12 @@ data class AppSettings(
     // Minimum Sharpless angular diameter to keep, arcmin (matches the CLI's
     // --sharpless-min-diam; drops tiny/compact H II regions).
     val sharplessMinDiam: Float = 10f,
+    // Atmospheric conditions for the polar-alignment refraction correction
+    // (reticle stage). Defaults match harp.polar's own (1010 hPa / 10 C).
+    // Their effect is sub-arcminute for realistic values, so this is a
+    // refinement for the fastidious, not a required input.
+    val pressureHpa: Float = 1010f,
+    val tempC: Float = 10f,
 )
 
 class SettingsRepo(private val context: Context) {
@@ -71,6 +77,8 @@ class SettingsRepo(private val context: Context) {
         val SOLAR_SYSTEM = booleanPreferencesKey("solar_system")
         val SHARPLESS = booleanPreferencesKey("sharpless")
         val SHARPLESS_MIN_DIAM = floatPreferencesKey("sharpless_min_diam")
+        val PRESSURE_HPA = floatPreferencesKey("pressure_hpa")
+        val TEMP_C = floatPreferencesKey("temp_c")
     }
 
     val flow: Flow<AppSettings> = context.dataStore.data.map { p ->
@@ -93,6 +101,8 @@ class SettingsRepo(private val context: Context) {
             solarSystem = p[SOLAR_SYSTEM] ?: true,
             sharpless = p[SHARPLESS] ?: true,
             sharplessMinDiam = p[SHARPLESS_MIN_DIAM] ?: 10f,
+            pressureHpa = p[PRESSURE_HPA] ?: 1010f,
+            tempC = p[TEMP_C] ?: 10f,
         )
     }
 

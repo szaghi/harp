@@ -1,5 +1,12 @@
 <div align="center">
 
+<!--
+  Absolute raw-GitHub URL, not a relative path: this README is also the PyPI
+  long_description (pyproject.toml `readme`), and PyPI does not resolve
+  repo-relative image paths. The file itself lives at assets/harp-icon.svg.
+-->
+<img src="https://raw.githubusercontent.com/szaghi/harp/main/assets/harp-icon.svg" alt="HARP" width="132" height="132">
+
 # HARP
 
 #### *image the sky your balcony can actually see*
@@ -42,6 +49,10 @@
 <tr>
 <td><b>🪐 Solar System targets</b><br><sub>The Moon and the eight planets are ranked alongside deep-sky objects (on by default, fully offline) — position and apparent disk recomputed for every step of the night, since they move. Moon-impact and mosaic columns show <code>n/a</code>/<code>planetary</code>; N.I.N.A. exports get a dusk snapshot. Major satellites are an online opt-in (<code>--ss-moons</code>). <a href="https://szaghi.github.io/harp/guide/usage#solar-system-targets">Solar System guide</a></sub></td>
 <td><b>🏷️ Target classification</b><br><sub>Every target carries its nature — <code>nebula</code>, <code>galaxy</code>, <code>cluster</code>, <code>planetary</code>, <code>star</code>, <code>planet</code>, <code>moon</code>, <code>sun</code> — surfaced in the table, CSV and JSON, and filterable: <code>--filter planet</code>, <code>--filter galaxy,cluster</code>. Note <code>planetary</code> (planetary <em>nebula</em>) stays distinct from <code>planet</code>. <a href="https://szaghi.github.io/harp/guide/usage#filtering-and-ordering">Filtering guide</a></sub></td>
+</tr>
+<tr>
+<td><b>🧭 Polar alignment in twilight</b><br><sub>The Android app rough-aligns the mount <em>before Polaris is visible</em>: strap the phone to the tube and it gives live azimuth/altitude bolt corrections onto the refracted pole, with a bullseye whose inner ring is a polar-scope field. Honest about its ±1-2° magnetometer limit — which is exactly what a 5-8° polar scope needs. Refine afterwards with N.I.N.A. TPPA. <a href="https://szaghi.github.io/harp/guide/usage#polar-alignment">Polar alignment guide</a></sub></td>
+<td><b>🐍 Stable Python API</b><br><sub><code>harp plan/info/mosaic --json</code> emit machine-readable output, and <code>harp.api</code> is the supported import surface for scripts and frontends — planning, targets, optics, horizons, saved sites and polar geometry. Breaking changes bump <code>API_VERSION</code>; the Android app rides the same surface, which is what stops it drifting from the CLI. <a href="https://szaghi.github.io/harp/guide/usage#scripting-json-and-the-python-api">Scripting guide</a></sub></td>
 </tr>
 </table>
 </div>
@@ -128,10 +139,22 @@ Precedence: **CLI option > config value > built-in default**. Details in the
 ## Android app (experimental)
 
 An Android frontend lives in [`android/`](android/): the same Python core,
-embedded on-device via Chaquopy, plus a **horizon wizard** that measures your
-skyline with the phone's sensors — true-north azimuths computed on-device
-(built-in World Magnetic Model, no manual declination), tap-to-record
-vertices, `.hrz` export.
+embedded on-device via Chaquopy, so the app and the CLI cannot drift apart.
+Five tabs, all working offline:
+
+- **Home** — a dashboard laid out as a mini solar system: tonight's darkness
+  window and Moon on the Sun, the other tabs as planets carrying their status.
+- **Horizon** — the wizard that measures your skyline with the phone's
+  sensors: true-north azimuths computed on-device (built-in World Magnetic
+  Model, no manual declination), tap-to-record vertices, `.hrz` export.
+- **Plan** — the full ranking on-device, with filter chips by target class.
+- **Align** — a compass rose plus a polar-alignment assistant that gives live
+  bolt corrections while the phone is fixed to the mount.
+- **Settings** — rig, planning thresholds, catalogues, seven indoor themes and
+  a red night-vision mode.
+
+Saved sites use the CLI's exact layout (`sites.yaml` + one `.hrz` per site),
+so the directory can be copied to a desktop `~/.config/harp/`.
 
 Two ways to get an APK: **CI** (every push builds the `harp-debug-apk`
 artifact in the Android workflow — zero local setup) or a **local build**

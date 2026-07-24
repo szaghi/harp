@@ -17,7 +17,29 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import kotlin.math.abs
+
+/**
+ * A live azimuth/altitude correction toward the celestial pole.
+ *
+ * Positive [dAz] means the pole is to the RIGHT of where the reference now
+ * points (turn the azimuth bolt that way); positive [dAlt] means it is HIGHER
+ * (raise the altitude bolt). [onTarget] is true once both are within the
+ * arcminute-ish tolerance the phone sensors can honour.
+ */
+data class Correction(val dAz: Float, val dAlt: Float) {
+    val onTarget: Boolean get() = abs(dAz) < POLE_TOLERANCE_DEG && abs(dAlt) < POLE_TOLERANCE_DEG
+
+    companion object {
+        /** How close counts as aligned, degrees — the magnetometer floor, not a promise of arcminutes. */
+        const val POLE_TOLERANCE_DEG = 0.5f
+    }
+}
 
 /**
  * Sensor half of the polar-alignment compass tab.
@@ -61,6 +83,10 @@ class CompassViewModel(app: Application) : AndroidViewModel(app), SensorEventLis
     var declination by mutableFloatStateOf(0f); private set
     var sensorAccuracy by mutableIntStateOf(SensorManager.SENSOR_STATUS_UNRELIABLE); private set
     var latitude by mutableStateOf<Double?>(null); private set
+    // Longitude is irrelevant to the coarse stage (the pole's azimuth and
+    // altitude depend on latitude alone) but essential to the fine stage: the
+    // reticle angle is driven by local sidereal time.
+    var longitude by mutableStateOf<Double?>(null); private set
     var hasFix by mutableStateOf(false); private set
 
     // Gyro-hold state. When holding, [azimuthTrue] is the gyro-propagated
@@ -72,6 +98,124 @@ class CompassViewModel(app: Application) : AndroidViewModel(app), SensorEventLis
     private var heldHeading = 0f
     private var holdStartNanos = 0L
     private var lastGyroNanos = 0L
+
+    // ---- Fine (alignment-assistant) stage -----------------------------
+    // ONE job: rough-align the mount in twilight, BEFORE Polaris is visible,
+    // closely enough that Polaris lands in the polar scope's field when it
+    // appears. Refinement afterwards is N.I.N.A. TPPA's job, not this tab's.
+    //
+    // That use case rules out any capture/calibration step: a reference taken
+    // against a star you cannot yet see is impossible, and a reference taken
+    // against nothing is meaningless. So the correction is always ABSOLUTE —
+    // the computed pole minus where the phone points now. No modes, no state.
+    //
+    // The only thing that varies is how the phone sits on the mount, which is
+    // a pure sensor-frame question answered by [flatMount], not by calibration.
+    //
+    // Accuracy: the magnetometer's 1-2 deg. A polar scope's field is ~5-8 deg,
+    // so that is genuinely sufficient HERE — no hedging needed for this job.
+
+    /**
+     * How the phone is fixed to the mount.
+     *
+     * true  — FLAT: lying on the tube / a flat face, its long (top) edge along
+     *         the polar axis. Verified against a constructed pose: the raw
+     *         ROTATION_VECTOR matrix already reports exactly this direction,
+     *         so no axis remap is applied.
+     * false — BACK CAMERA: the back camera looks down the polar axis, which
+     *         needs the (AXIS_X, AXIS_Z) remap.
+     */
+    var flatMount by mutableStateOf(true); private set
+
+    // Refracted pole altitude from the core; falls back to bare |lat| offline.
+    var poleAltitudeRefracted by mutableFloatStateOf(0f); private set
+    var refractionReady by mutableStateOf(false); private set
+    var alignError by mutableStateOf(""); private set
+
+    // Atmospheric conditions for the refraction correction, mirrored from
+    // Settings; a change re-solves the refracted altitude.
+    private val settingsRepo = SettingsRepo(app)
+    private var pressureHpa = 1010f
+    private var tempC = 10f
+
+    init {
+        viewModelScope.launch {
+            settingsRepo.flow.collect { s ->
+                val changed = s.pressureHpa != pressureHpa || s.tempC != tempC
+                pressureHpa = s.pressureHpa
+                tempC = s.tempC
+                if (changed && refractionReady) fetchRefractedAltitude()
+            }
+        }
+    }
+
+    fun chooseFlatMount(flat: Boolean) {
+        flatMount = flat
+    }
+
+    /**
+     * The pole altitude to aim at: refracted once the core has answered, the
+     * bare geometric |lat| until then (the difference is ~1 arcmin, invisible
+     * at this stage, so the fallback costs nothing).
+     */
+    val targetAltitude: Float
+        get() = if (refractionReady) poleAltitudeRefracted else poleAltitude
+
+    /**
+     * Live correction from where the polar axis points now to the pole, or
+     * null without a GPS fix (the pole altitude is the latitude).
+     *
+     * Positive dAz: the pole is to the right (east) — turn the azimuth bolt
+     * that way. Positive dAlt: the pole is higher — raise the altitude bolt.
+     */
+    val correction: Correction?
+        get() {
+            if (!hasFix) return null
+            var dAz = poleAzimuth - azimuthTrue
+            if (dAz > 180f) dAz -= 360f
+            if (dAz < -180f) dAz += 360f
+            return Correction(dAz, targetAltitude - altitude)
+        }
+
+    /**
+     * Refracted pole altitude from the Python core (needs only latitude, plus
+     * pressure/temperature). Azimuth and the pole star's clock are not needed
+     * by the assistant, so this asks for the one value that is not pure
+     * geometry. Cheap; safe to re-run on entry or a settings change.
+     */
+    fun fetchRefractedAltitude() {
+        val lat = latitude ?: return
+        val lon = longitude ?: return
+        viewModelScope.launch {
+            val raw = withContext(Dispatchers.IO) {
+                try {
+                    val req = JSONObject().apply {
+                        put("lat", lat)
+                        put("lon", lon)
+                        put("pressure_hpa", pressureHpa.toDouble())
+                        put("temp_c", tempC.toDouble())
+                    }
+                    PyBridge.py.getModule("polar_bridge")
+                        .callAttr("run_polar", req.toString()).toString()
+                } catch (e: Exception) {
+                    JSONObject().put("error", "${e.javaClass.simpleName}: ${e.message}").toString()
+                }
+            }
+            try {
+                val o = JSONObject(raw)
+                if (o.has("error")) {
+                    alignError = o.getString("error")
+                    // keep the geometric fallback already in poleAltitudeRefracted
+                } else {
+                    alignError = ""
+                    poleAltitudeRefracted = o.getDouble("pole_alt_refracted").toFloat()
+                    refractionReady = true
+                }
+            } catch (e: Exception) {
+                alignError = "bad alignment payload: ${e.message}"
+            }
+        }
+    }
 
     private val sensorManager =
         app.getSystemService(Context.SENSOR_SERVICE) as SensorManager
@@ -137,10 +281,18 @@ class CompassViewModel(app: Application) : AndroidViewModel(app), SensorEventLis
 
     private fun onRotationVector(event: SensorEvent) {
         SensorManager.getRotationMatrixFromVector(rotation, event.values)
-        // remap so the reported direction is where the back camera points
-        SensorManager.remapCoordinateSystem(
-            rotation, SensorManager.AXIS_X, SensorManager.AXIS_Z, remapped,
-        )
+        // Which device direction counts as "where this is pointing" depends on
+        // how the phone is fixed to the mount. FLAT (long edge along the axis)
+        // is what the raw matrix already reports, so it is used unremapped;
+        // BACK CAMERA needs the (AXIS_X, AXIS_Z) remap. Both then share the
+        // same altitude = -pitch convention below.
+        if (flatMount) {
+            System.arraycopy(rotation, 0, remapped, 0, 9)
+        } else {
+            SensorManager.remapCoordinateSystem(
+                rotation, SensorManager.AXIS_X, SensorManager.AXIS_Z, remapped,
+            )
+        }
         // keep the device->world matrix for the gyro projection (unremapped:
         // rows are the world-frame components of the device x/y/z axes)
         System.arraycopy(rotation, 0, worldFromDevice, 0, 9)
@@ -210,6 +362,7 @@ class CompassViewModel(app: Application) : AndroidViewModel(app), SensorEventLis
             null
         } ?: return
         latitude = loc.latitude
+        longitude = loc.longitude
         hasFix = true
         declination = GeomagneticField(
             loc.latitude.toFloat(),

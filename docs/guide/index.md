@@ -16,4 +16,15 @@ it.
 
 Commands: `harp plan` (rank tonight's targets), `harp mosaic` (per-panel
 coordinates), `harp info` (details on one target), `harp horizon` (build the
-`.hrz` mask), `harp list` (show configured sites/optics).
+`.hrz` mask), `harp sites` (manage saved observing sites), `harp list` (show
+configured sites/optics).
+
+Everything runs **offline** — catalogues and ephemerides ship with the
+package. The only exception is `--ss-moons`, which fetches a JPL ephemeris
+for the major planetary moons.
+
+There is also an [Android companion app](/guide/android) built on the same
+core, which adds two things the CLI cannot do: capturing your horizon profile
+by pointing the phone at the skyline, and a
+[polar-alignment assistant](/guide/usage#polar-alignment) for rough-aligning
+the mount in twilight.

@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    HARP launcher icon — FOREGROUND layer.
+
+    The three deep-sky targets with their transit arcs, the ground, and the
+    Newtonian on its German equatorial mount.
+
+    SAFE ZONE. The launcher scales this layer by 1.5x about the canvas centre
+    and then applies an arbitrary mask, so only the middle 72x72 of the 108x108
+    canvas is guaranteed visible. Rather than re-plot every path, the artwork is
+    authored in the original 108-unit design space and wrapped in one group that
+    maps 0..108 onto 18..90:
+
+        scaleX = scaleY = 72/108 = 0.666667,  translate = +18
+
+    That keeps every coordinate identical to the reviewed mockup — no hand
+    conversion, no drift — while guaranteeing nothing is cropped.
+
+    NO COORDINATE LABELS. The mockup carries "M42 5h35" and friends as
+    microtype. Android <vector> has no text primitive, and converting 4px
+    glyphs to outlines would add hundreds of nodes for text that is illegible
+    at 48dp regardless. The arcs and reticles carry the "planner" reading on
+    their own.
+
+    Colour hierarchy (relative luminance), chosen so each element separates
+    from whatever sits behind it:
+        ground        #04070E  0.0021
+        tube mouth    #080C18  0.0038
+        tube          #151C2E  0.0119   darker than the mount...
+        mount         #2A3348  0.0333   ...but both lighter than the ground
+        counterweight #3A4560  0.0600   lightest: the most diagnostic part
+    An earlier revision drew the mount in the ground's exact colour and it was
+    completely invisible. Do not collapse these values.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <group
+        android:scaleX="0.666667"
+        android:scaleY="0.666667"
+        android:translateX="18"
+        android:translateY="18">
+
+        <!-- ============ field stars ============ -->
+        <path android:fillColor="#FFFFFF" android:fillAlpha="0.5"
+            android:pathData="M12,30m-0.8,0a0.8,0.8 0,1 1,1.6 0a0.8,0.8 0,1 1,-1.6 0" />
+        <path android:fillColor="#FFFFFF" android:fillAlpha="0.5"
+            android:pathData="M98,18m-0.9,0a0.9,0.9 0,1 1,1.8 0a0.9,0.9 0,1 1,-1.8 0" />
+        <path android:fillColor="#FFFFFF" android:fillAlpha="0.5"
+            android:pathData="M20,58m-0.7,0a0.7,0.7 0,1 1,1.4 0a0.7,0.7 0,1 1,-1.4 0" />
+        <path android:fillColor="#FFFFFF" android:fillAlpha="0.5"
+            android:pathData="M88,52m-0.8,0a0.8,0.8 0,1 1,1.6 0a0.8,0.8 0,1 1,-1.6 0" />
+
+        <!-- ============ M104 Sombrero, upper left ============ -->
+        <path android:strokeColor="#7AA2FF" android:strokeWidth="0.8"
+            android:strokeAlpha="0.7" android:pathData="M6,44q14,-20 34,-16" />
+        <group android:pivotX="24" android:pivotY="22" android:rotation="-18">
+            <path android:fillAlpha="0.75"
+                android:pathData="M24,22m-14,0a14,6 0,1 1,28 0a14,6 0,1 1,-28 0">
+                <aapt:attr name="android:fillColor">
+                    <gradient android:type="radial"
+                        android:centerX="24" android:centerY="22" android:gradientRadius="14">
+                        <item android:offset="0.0" android:color="#FFFFF6DC" />
+                        <item android:offset="0.5" android:color="#99FFD79A" />
+                        <item android:offset="1.0" android:color="#00C9A0FF" />
+                    </gradient>
+                </aapt:attr>
+            </path>
+            <path android:fillColor="#EBD9FF" android:fillAlpha="0.9"
+                android:pathData="M24,22m-13,0a13,3 0,1 1,26 0a13,3 0,1 1,-26 0" />
+            <path android:fillColor="#FFF3D6"
+                android:pathData="M24,22m-5,0a5,3.4 0,1 1,10 0a5,3.4 0,1 1,-10 0" />
+            <path android:fillColor="#060B18" android:fillAlpha="0.85"
+                android:pathData="M24,22.8m-13,0a13,0.9 0,1 1,26 0a13,0.9 0,1 1,-26 0" />
+        </group>
+        <path android:strokeColor="#7AA2FF" android:strokeWidth="0.7"
+            android:strokeAlpha="0.85" android:pathData="M24,13v3M24,28v3M11,22h3M34,22h3" />
+
+        <!-- ============ Polaris + Ursa Minor, upper right ============ -->
+        <path android:strokeColor="#7AA2FF" android:strokeWidth="0.8"
+            android:strokeAlpha="0.65" android:pathData="M96,14a26,26 0,0 1,-8 22" />
+        <path android:strokeColor="#9FC0FF" android:strokeWidth="0.55"
+            android:strokeAlpha="0.45"
+            android:pathData="M88,16L80,26L74,34L79,41L86,36L88,16" />
+        <path android:fillColor="#FFFFFF"
+            android:pathData="M88,16m-2.6,0a2.6,2.6 0,1 1,5.2 0a2.6,2.6 0,1 1,-5.2 0" />
+        <path android:strokeColor="#C0CAF5" android:strokeWidth="0.7"
+            android:strokeAlpha="0.8"
+            android:pathData="M88,9v3.4M88,19.6v3.4M81,16h3.4M91.6,16h3.4" />
+        <path android:fillColor="#FFFFFF" android:fillAlpha="0.75"
+            android:pathData="M80,26m-1.2,0a1.2,1.2 0,1 1,2.4 0a1.2,1.2 0,1 1,-2.4 0" />
+        <path android:fillColor="#FFFFFF" android:fillAlpha="0.75"
+            android:pathData="M74,34m-1.1,0a1.1,1.1 0,1 1,2.2 0a1.1,1.1 0,1 1,-2.2 0" />
+        <path android:fillColor="#FFFFFF" android:fillAlpha="0.75"
+            android:pathData="M79,41m-1.2,0a1.2,1.2 0,1 1,2.4 0a1.2,1.2 0,1 1,-2.4 0" />
+        <path android:fillColor="#FFFFFF" android:fillAlpha="0.75"
+            android:pathData="M86,36m-1,0a1,1 0,1 1,2 0a1,1 0,1 1,-2 0" />
+
+        <!-- ============ M42 / Orion — the primary target ============ -->
+        <path android:pathData="M58,46m-13,0a13,10 0,1 1,26 0a13,10 0,1 1,-26 0">
+            <aapt:attr name="android:fillColor">
+                <gradient android:type="radial"
+                    android:centerX="58" android:centerY="46" android:gradientRadius="13">
+                    <item android:offset="0.0" android:color="#F2FFE9C4" />
+                    <item android:offset="0.38" android:color="#99FF9EC4" />
+                    <item android:offset="1.0" android:color="#00B061C9" />
+                </gradient>
+            </aapt:attr>
+        </path>
+        <path android:strokeColor="#CFE0FF" android:strokeWidth="1"
+            android:strokeAlpha="0.65" android:pathData="M47,33L54,38L61,43" />
+        <path android:fillColor="#FFFFFF"
+            android:pathData="M47,33m-2.3,0a2.3,2.3 0,1 1,4.6 0a2.3,2.3 0,1 1,-4.6 0" />
+        <path android:fillColor="#FFFFFF"
+            android:pathData="M54,38m-2.5,0a2.5,2.5 0,1 1,5 0a2.5,2.5 0,1 1,-5 0" />
+        <path android:fillColor="#FFFFFF"
+            android:pathData="M61,43m-2.3,0a2.3,2.3 0,1 1,4.6 0a2.3,2.3 0,1 1,-4.6 0" />
+        <!-- transit arc, warm: this is the target being planned -->
+        <path android:strokeColor="#FFB454" android:strokeWidth="1.1"
+            android:strokeAlpha="0.85" android:pathData="M32,62q18,-28 44,-34" />
+        <path android:strokeColor="#FFB454" android:strokeWidth="0.85"
+            android:strokeAlpha="0.95"
+            android:pathData="M54,28v3.6M54,44.4v3.6M44,38h3.6M60.4,38h3.6" />
+
+        <!-- ============ ground ============ -->
+        <path android:fillColor="#0A1428" android:fillAlpha="0.92"
+            android:pathData="M0,80L24,74L48,79L72,73L96,78L108,74v34H0z" />
+        <path android:fillColor="#04070E"
+            android:pathData="M0,90L26,86L54,91L82,87L108,91v17H0z" />
+
+        <!-- ============ Newtonian on a German equatorial mount ============ -->
+        <group android:pivotX="47" android:pivotY="78" android:rotation="-34">
+            <!-- optical tube: a plain capped cylinder, no protruding end rings -->
+            <path android:fillColor="#151C2E"
+                android:pathData="M26.2,68h34.6a2.2,2.2 0,0 1,2.2 2.2v11.6a2.2,2.2 0,0 1,-2.2 2.2h-34.6a2.2,2.2 0,0 1,-2.2 -2.2v-11.6a2.2,2.2 0,0 1,2.2 -2.2z" />
+            <!-- open mouth, inset into the tube end. NO spider vanes: at icon
+                 scale a crossed X reads as a defect stuck to the tube. -->
+            <path android:fillColor="#080C18"
+                android:pathData="M60.7,69.6h0.4a1.1,1.1 0,0 1,1.1 1.1v10.6a1.1,1.1 0,0 1,-1.1 1.1h-0.4a1.1,1.1 0,0 1,-1.1 -1.1v-10.6a1.1,1.1 0,0 1,1.1 -1.1z" />
+            <!-- focuser: one squat block whose base overlaps the tube wall,
+                 plus a narrower drawtube overlapping the block -->
+            <path android:fillColor="#151C2E"
+                android:pathData="M50.5,64.4h6a1,1 0,0 1,1 1v2.2a1,1 0,0 1,-1 1h-6a1,1 0,0 1,-1 -1v-2.2a1,1 0,0 1,1 -1z" />
+            <path android:fillColor="#151C2E"
+                android:pathData="M52.5,62h2a0.9,0.9 0,0 1,0.9 0.9v1.4a0.9,0.9 0,0 1,-0.9 0.9h-2a0.9,0.9 0,0 1,-0.9 -0.9v-1.4a0.9,0.9 0,0 1,0.9 -0.9z" />
+            <!-- dovetail saddle joining tube to mount -->
+            <path android:fillColor="#2A3348"
+                android:pathData="M41.2,82.5h6.6a1.2,1.2 0,0 1,1.2 1.2v2a1.2,1.2 0,0 1,-1.2 1.2h-6.6a1.2,1.2 0,0 1,-1.2 -1.2v-2a1.2,1.2 0,0 1,1.2 -1.2z" />
+        </group>
+        <!-- mount head -->
+        <path android:fillColor="#2A3348" android:pathData="M41.4,83.6h11l-1.4,7h-8.2z" />
+        <!-- RA axis housing -->
+        <path android:fillColor="#2A3348"
+            android:pathData="M44.8,88.2h4.2a1.2,1.2 0,0 1,1.2 1.2v2.2a1.2,1.2 0,0 1,-1.2 1.2h-4.2a1.2,1.2 0,0 1,-1.2 -1.2v-2.2a1.2,1.2 0,0 1,1.2 -1.2z" />
+        <!-- counterweight shaft, down-left to oppose the up-right tube -->
+        <path android:strokeColor="#2A3348" android:strokeWidth="2.2"
+            android:strokeLineCap="round" android:pathData="M45.4,89.4L34.4,97.2" />
+        <path android:fillColor="#3A4560"
+            android:pathData="M33.6,97.8m-4.1,0a4.1,3.3 0,1 1,8.2 0a4.1,3.3 0,1 1,-8.2 0" />
+        <path android:fillColor="#3A4560"
+            android:pathData="M37,95.4m-1.6,0a1.6,1.4 0,1 1,3.2 0a1.6,1.4 0,1 1,-3.2 0" />
+        <!-- tripod: three splayed legs, centre one shorter for perspective -->
+        <path android:strokeColor="#2A3348" android:strokeWidth="2.3"
+            android:strokeLineCap="round" android:pathData="M46.8,92.6L38.6,101.5" />
+        <path android:strokeColor="#2A3348" android:strokeWidth="2.3"
+            android:strokeLineCap="round" android:pathData="M46.8,92.6L55.4,101.5" />
+        <path android:strokeColor="#2A3348" android:strokeWidth="2.1"
+            android:strokeLineCap="round" android:pathData="M46.8,92.6L47.4,99.4" />
+        <path android:strokeColor="#2A3348" android:strokeWidth="1.3"
+            android:strokeAlpha="0.9" android:pathData="M42.6,97h8.4" />
+    </group>
+</vector>

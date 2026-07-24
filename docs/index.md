@@ -5,6 +5,10 @@ hero:
   name: HARP
   text: Horizon-Aware Recommender and Planner
   tagline: Select the deep-sky targets best placed for tonight's astrophotography session.
+  # Served from docs/public/; VitePress prepends `base` itself, so no /harp/ here.
+  image:
+    src: /harp-icon.svg
+    alt: HARP — a Newtonian telescope under a night sky with deep-sky targets
   actions:
     - theme: brand
       text: Get Started
