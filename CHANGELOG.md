@@ -4,6 +4,11 @@ All notable changes to HARP are documented here.
 Versions follow [Semantic Versioning](https://semver.org/).
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.3.1] — 2026-07-24
+### Added
+- **planner**: Rank targets by sky contrast, not just magnitude
+
+
 ## [0.3.0] — 2026-07-24
 ### Added
 - **android**: Polar-alignment assistant, home dashboard, official icon
