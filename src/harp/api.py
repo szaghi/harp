@@ -27,10 +27,15 @@ from harp.optics import Rig, parse_sensor
 from harp.planner import NightPlan, PlanRow, Site, desirability, plan_night
 from harp.polar import MOUNTS, Mount, ReticleFix, reticle_position
 from harp.sites import SiteEntry, SitesConfig, default_config_path, slugify
+from harp.sky import BORTLE_SQM, contrast_score, sky_brightness, surface_brightness
 
 # 2: added the multi-site store (SitesConfig/SiteEntry) and site JSON helpers.
 # 3: Solar System targets (Target.body/coord=None) and the target
 #    classification field, both surfaced additively in every converter.
+# 4: sky-quality contrast (BORTLE_SQM/contrast_score/sky_brightness/
+#    surface_brightness) plus optional Site.bortle/sqm and Rig.aperture_mm.
+#    Additive and neutral by default: a site that declares no sky ranks
+#    exactly as before.
 # 4: polar alignment (polar_align_to_dict, MOUNTS/Mount/ReticleFix) for the
 #    Android alignment tab's polar-scope stage. Purely additive -- every
 #    existing converter and signature is unchanged.
@@ -38,6 +43,7 @@ API_VERSION = "4"
 
 __all__ = [
     "API_VERSION",
+    "BORTLE_SQM",
     "FILTER_TOKENS",
     "MOUNTS",
     "Horizon",
@@ -53,6 +59,7 @@ __all__ = [
     "Target",
     "build_profile",
     "build_targets",
+    "contrast_score",
     "default_config_path",
     "desirability",
     "filter_targets",
@@ -68,7 +75,9 @@ __all__ = [
     "polar_align_to_dict",
     "reticle_position",
     "site_to_dict",
+    "sky_brightness",
     "slugify",
+    "surface_brightness",
     "target_link",
     "target_to_dict",
     "user_targets",

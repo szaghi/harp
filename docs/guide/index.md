@@ -19,6 +19,12 @@ coordinates), `harp info` (details on one target), `harp horizon` (build the
 `.hrz` mask), `harp sites` (manage saved observing sites), `harp list` (show
 configured sites/optics).
 
+Tell HARP your sky as well as your horizon (`--bortle`, or a measured
+`--sqm`) and the ranking accounts for [light
+pollution](/guide/usage#light-pollution-and-target-contrast) too: it switches
+from magnitude to *contrast*, so the big faint galaxies that drown in city
+glow sink, while compact objects and narrowband nebulae hold their place.
+
 Everything runs **offline** — catalogues and ephemerides ship with the
 package. The only exception is `--ss-moons`, which fetches a JPL ephemeris
 for the major planetary moons.

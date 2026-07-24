@@ -24,6 +24,8 @@ features:
     details: Matches targets to your telescope + camera field of view, down to per-panel mosaic coordinates.
   - title: Moon-savvy
     details: Phase, separation, and narrowband-awareness folded into a per-target verdict.
+  - title: Light-pollution aware
+    details: Declare a Bortle class or an SQM reading and ranking switches from magnitude to contrast — surface brightness against your sky. Faint sprawling galaxies sink in city glow; compact and narrowband targets hold. Neutral until you ask for it.
   - title: Ranked, not just listed
     details: A 0-100 desirability score orders each night's candidates; one hopeless factor sinks a target.
   - title: N.I.N.A.-integrated

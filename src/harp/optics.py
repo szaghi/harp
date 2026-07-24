@@ -63,6 +63,12 @@ class Rig:
     margin : float
         Framing margin: an object fits "1 frame" only within this fraction
         of the field of view.
+    aperture_mm : float or None
+        Clear aperture in mm. Optional, and used only by the sky-contrast
+        term of the desirability score: more aperture means more signal per
+        unit time, easing a faint target against light pollution. When None
+        the contrast model assumes its reference aperture, so an existing
+        config that never mentioned aperture ranks exactly as before.
     """
 
     focal_mm: float
@@ -71,6 +77,7 @@ class Rig:
     sensor_h_mm: float
     overlap: float = 0.15
     margin: float = 0.90
+    aperture_mm: float | None = None
 
     @staticmethod
     def _fov_arcmin(size_mm: float, focal_mm: float) -> float:

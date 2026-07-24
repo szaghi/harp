@@ -30,6 +30,13 @@ sites:
     lon:   12.889862      # longitude East positive
     elev:  300            # elevation (m)
     tz:    Europe/Rome
+    # Light pollution (optional). Declaring either one switches on the
+    # sky-contrast term: faint low-surface-brightness targets (big face-on
+    # galaxies) sink in a bright sky, while compact objects and narrowband
+    # emission nebulae barely move. Leave both out and the ranking is
+    # exactly what it was before the term existed.
+    # bortle: 6           # 1 (pristine) .. 9 (inner city)
+    # sqm:    19.5        # measured mag/arcsec^2; wins over bortle
 
   # --- example second site (adjust values and create its own .hrz) ---
   mountain:
@@ -49,6 +56,10 @@ optics:
   newton800:              # Newton 200/800 f/4 + ToupTek ATR2600C (IMX571)
     focal:  800
     sensor: "23.5x15.7"
+    # Clear aperture (optional, mm). Used only by the sky-contrast term:
+    # more aperture eases a faint target against light pollution. Omit it
+    # and the model assumes its 200 mm reference.
+    aperture: 200
 
   # --- examples of other optical trains ---
   newton800_reducer:      # with 0.95x coma corrector / reducer

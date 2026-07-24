@@ -56,6 +56,9 @@ def _resolve_rig(cfg: dict, cfg_path, optics: str | None, focal: float | None, s
         sensor_name=sensor_name,
         sensor_w_mm=sw,
         sensor_h_mm=sh,
+        # Optional: only the sky-contrast term uses it, and None means
+        # "assume the reference aperture", so old configs are unaffected.
+        aperture_mm=pick(None, "aperture", optics_cfg, None),
     )
 
 
@@ -106,6 +109,18 @@ def plan(
     elev: float | None = typer.Option(None, help="Elevation (m)."),
     tz: str | None = typer.Option(None, help="IANA timezone, e.g. Europe/Rome."),
     label: str | None = typer.Option(None, help="Site label."),
+    bortle: int | None = typer.Option(
+        None,
+        min=1,
+        max=9,
+        help="Bortle class 1-9 of the site's sky. Enables the light-pollution "
+        "term in the score: faint low-surface-brightness targets sink in bright "
+        "skies, narrowband ones far less. Omit to leave the ranking unchanged.",
+    ),
+    sqm: float | None = typer.Option(
+        None,
+        help="Measured sky brightness (mag/arcsec^2), e.g. 20.8. Overrides --bortle.",
+    ),
     focal: float | None = typer.Option(None, help="Focal length (mm)."),
     sensor: str | None = typer.Option(None, help="A sensor preset or 'WxH' in mm, e.g. 23.5x15.7."),
     catalogs: str | None = typer.Option(
@@ -211,6 +226,10 @@ def plan(
             lon=pick(lon, "lon", site_cfg, DEFAULTS.lon),
             elev=pick(elev, "elev", site_cfg, DEFAULTS.elev),
             tz=pick(tz, "tz", site_cfg, DEFAULTS.tz),
+            # Light pollution, both optional. Declaring neither leaves the
+            # sky-contrast term neutral, so the ranking is unchanged.
+            bortle=pick(bortle, "bortle", site_cfg, None),
+            sqm=pick(sqm, "sqm", site_cfg, None),
         )
         rig = _resolve_rig(cfg, cfg_path, optics, focal, sensor)
 

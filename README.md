@@ -35,7 +35,7 @@
 <td><b>⏱️ Continuous imaging windows</b><br><sub>Per target: total usable hours during astronomical darkness plus the longest <em>continuous</em> run before it enters a blocked sector — the number you actually size exposures and mosaic panels on. <a href="https://szaghi.github.io/harp/guide/usage#reading-the-output">Reading the output</a></sub></td>
 </tr>
 <tr>
-<td><b>🏆 Desirability ranking</b><br><sub>Every target gets a 0-100 score: a weighted geometric mean of continuous window, total hours, peak altitude (inverse-airmass), Moon verdict, and how well the object fills your field of view — so one hopeless factor sinks a target instead of averaging away. <code>--sort hours</code> restores the classic order.</sub></td>
+<td><b>🏆 Desirability ranking</b><br><sub>Every target gets a 0-100 score: a weighted geometric mean of continuous window, total hours, peak altitude (inverse-airmass), Moon verdict, field-of-view fill, intrinsic prominence, and sky contrast — so one hopeless factor sinks a target instead of averaging away. <code>--sort hours</code> restores the classic order.</sub></td>
 <td><b>🌙 Moon impact model</b><br><sub>Phase and separation folded into a per-target verdict — <code>none</code>, <code>ok(NB)</code>, <code>low/med/high</code> — with narrowband auto-derived from the object type: planetaries, supernova remnants and HII regions shrug at a Moon that ruins broadband RGB.</sub></td>
 </tr>
 <tr>
@@ -51,8 +51,11 @@
 <td><b>🏷️ Target classification</b><br><sub>Every target carries its nature — <code>nebula</code>, <code>galaxy</code>, <code>cluster</code>, <code>planetary</code>, <code>star</code>, <code>planet</code>, <code>moon</code>, <code>sun</code> — surfaced in the table, CSV and JSON, and filterable: <code>--filter planet</code>, <code>--filter galaxy,cluster</code>. Note <code>planetary</code> (planetary <em>nebula</em>) stays distinct from <code>planet</code>. <a href="https://szaghi.github.io/harp/guide/usage#filtering-and-ordering">Filtering guide</a></sub></td>
 </tr>
 <tr>
+<td><b>🌆 Light-pollution aware</b><br><sub>Declare your sky (<code>--bortle 6</code>, or a measured <code>--sqm</code>) and ranking switches from magnitude to <em>contrast</em>: surface brightness against the sky background. That is why M57 (mag 8.8, but 17.8/arcsec²) is a city classic while M101 (mag 7.9 — brighter! — but 23.8/arcsec²) drowns. Narrowband targets barely degrade, because a dual-band filter rejects broadband glow; aperture nudges gently. Declare nothing and the term is exactly neutral. <a href="https://szaghi.github.io/harp/guide/usage#light-pollution-and-target-contrast">Sky quality guide</a></sub></td>
 <td><b>🧭 Polar alignment in twilight</b><br><sub>The Android app rough-aligns the mount <em>before Polaris is visible</em>: strap the phone to the tube and it gives live azimuth/altitude bolt corrections onto the refracted pole, with a bullseye whose inner ring is a polar-scope field. Honest about its ±1-2° magnetometer limit — which is exactly what a 5-8° polar scope needs. Refine afterwards with N.I.N.A. TPPA. <a href="https://szaghi.github.io/harp/guide/usage#polar-alignment">Polar alignment guide</a></sub></td>
-<td><b>🐍 Stable Python API</b><br><sub><code>harp plan/info/mosaic --json</code> emit machine-readable output, and <code>harp.api</code> is the supported import surface for scripts and frontends — planning, targets, optics, horizons, saved sites and polar geometry. Breaking changes bump <code>API_VERSION</code>; the Android app rides the same surface, which is what stops it drifting from the CLI. <a href="https://szaghi.github.io/harp/guide/usage#scripting-json-and-the-python-api">Scripting guide</a></sub></td>
+</tr>
+<tr>
+<td colspan="2"><b>🐍 Stable Python API</b><br><sub><code>harp plan/info/mosaic --json</code> emit machine-readable output, and <code>harp.api</code> is the supported import surface for scripts and frontends — planning, targets, optics, horizons, saved sites, sky quality and polar geometry. Breaking changes bump <code>API_VERSION</code>; the Android app rides the same surface, which is what stops it drifting from the CLI. <a href="https://szaghi.github.io/harp/guide/usage#scripting-json-and-the-python-api">Scripting guide</a></sub></td>
 </tr>
 </table>
 </div>

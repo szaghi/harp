@@ -25,6 +25,7 @@ from harp.ephemeris import (
 )
 from harp.horizon import Horizon
 from harp.optics import Rig
+from harp.sky import contrast_score, sky_brightness
 
 __all__ = [
     "NightPlan",
@@ -52,6 +53,13 @@ class Site:
         Elevation in meters.
     tz : str
         IANA timezone name, e.g. ``'Europe/Rome'``.
+    bortle : int or None
+        Bortle class 1-9 estimating the site's light pollution. Optional:
+        without it (and without ``sqm``) the sky-contrast term stays neutral
+        and the ranking is exactly what it was before that term existed.
+    sqm : float or None
+        Measured zenith sky brightness, mag/arcsec^2. Wins over ``bortle``
+        when both are given, being a measurement rather than an estimate.
     """
 
     label: str
@@ -59,6 +67,13 @@ class Site:
     lon: float
     elev: float
     tz: str
+    bortle: int | None = None
+    sqm: float | None = None
+
+    @property
+    def sky_mag(self) -> float | None:
+        """Zenith sky brightness, mag/arcsec^2, or None if undeclared."""
+        return sky_brightness(self.bortle, self.sqm)
 
     @property
     def location(self) -> EarthLocation:
@@ -293,10 +308,11 @@ def desirability(
     maj_arcmin: float | None,
     fov_long: float,
     mag: float | None = None,
+    contrast: float = 1.0,
 ) -> float:
     """Composite 0-100 desirability score for one target on one night.
 
-    Weighted geometric mean of six terms, so a near-zero factor (no
+    Weighted geometric mean of seven terms, so a near-zero factor (no
     continuous window, hopeless Moon) sinks the score instead of being
     averaged away:
 
@@ -311,7 +327,12 @@ def desirability(
     - FOV match (weight 1): see :func:`_fov_match`;
     - prominence (weight 2): see :func:`_prominence` — a brightness/interest
       term so pure observability cannot let the moon-immune Sharpless regions
-      bury bright classics on moonlit nights.
+      bury bright classics on moonlit nights;
+    - sky contrast (weight 2): see :func:`harp.sky.contrast_score` — the
+      target's surface brightness against the site's light pollution. It is
+      exactly ``1.0`` (neutral) unless the site declares a Bortle class or an
+      SQM reading, so a config that says nothing about its sky ranks precisely
+      as it did before this term existed.
     """
     terms = [
         (3.0, min(cont_hours / 3.0, 1.0)),
@@ -320,6 +341,7 @@ def desirability(
         (2.0, moon_factor),
         (1.0, _fov_match(maj_arcmin, fov_long)),
         (2.0, _prominence(mag, maj_arcmin)),
+        (2.0, contrast),
     ]
     num = sum(w * math.log(max(t, 1e-3)) for w, t in terms)
     den = sum(w for w, _ in terms)
@@ -491,6 +513,20 @@ def plan_night(
                         maj_arcmin=maj,
                         fov_long=rig.fov_long,
                         mag=t.mag,
+                        # Solar System bodies are exempt: they are bright point
+                        # or disk sources, not extended deep-sky objects
+                        # competing with the sky background, so the contrast
+                        # model does not apply and must stay neutral.
+                        contrast=1.0
+                        if t.body is not None
+                        else contrast_score(
+                            t.mag,
+                            t.maj_arcmin,
+                            t.min_arcmin,
+                            site.sky_mag,
+                            narrowband=t.narrowband,
+                            aperture_mm=rig.aperture_mm,
+                        ),
                     ),
                     1,
                 ),

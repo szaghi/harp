@@ -439,6 +439,69 @@ from harp.api import polar_align_to_dict
 polar_align_to_dict(datetime.now(UTC), 41.9, 12.5, mount="skywatcher")
 ```
 
+## Light pollution and target contrast
+
+HARP models your horizon honestly. Tell it about the sky *above* that horizon
+and it will also stop recommending targets your site cannot realistically
+reach.
+
+```bash
+harp plan --bortle 6           # estimate your sky, 1 (pristine) .. 9 (inner city)
+harp plan --sqm 19.5           # or a measured value, mag/arcsec2 — wins over --bortle
+```
+
+Or per site in the config, so you never retype it:
+
+```yaml
+sites:
+  balcony:
+    lat: 41.738
+    lon: 12.890
+    tz:  Europe/Rome
+    bortle: 6
+
+optics:
+  newton800:
+    focal: 800
+    sensor: "23.5x15.7"
+    aperture: 200          # mm, optional
+```
+
+### Why surface brightness, not magnitude
+
+What decides whether a deep-sky object is imageable from a bright site is
+**contrast** — its surface brightness against the sky background — not its
+catalogue magnitude. A compact planetary nebula packs its light into a few
+square arcseconds and cuts straight through city glow; a large face-on galaxy
+spreads the *same* total flux over hundreds of times the area and drowns in it.
+
+That is why **M57** (mag 8.8, but 17.8 mag/arcsec²) is a classic city target
+while **M101** (mag 7.9 — brighter! — but 23.8 mag/arcsec²) is the textbook
+light-pollution casualty. Ranking on magnitude alone gets this exactly
+backwards.
+
+Two corrections make the model right for *imaging* rather than visual use:
+
+- **Narrowband targets barely care.** A dual-band filter rejects most
+  broadband light pollution, so emission nebulae stay viable downtown — which
+  is precisely why imagers shoot them from cities. HARP already knows which
+  targets are emission sources, and applies this automatically.
+- **Aperture helps, gently.** More signal per unit time, but an imager can
+  also just integrate longer, so aperture is a mild nudge rather than a
+  dominant term.
+
+::: tip It is off until you ask for it
+Declare neither `bortle` nor `sqm` and the contrast term is exactly neutral —
+your rankings are identical to what they were before this feature existed.
+Targets with no catalogue magnitude (most Sharpless regions) are also left
+neutral rather than penalised for missing data.
+:::
+
+A target is never *removed* by this term, only ranked lower: the score is a
+geometric mean with a floor, so a hopeless-from-here object sinks but still
+appears. If your sky improves — or you drive somewhere darker — change one
+number and the ranking follows.
+
 ## Scripting: JSON and the Python API
 
 Three commands emit machine-readable output — `harp plan --json`,
