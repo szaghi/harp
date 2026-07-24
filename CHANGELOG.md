@@ -4,6 +4,11 @@ All notable changes to HARP are documented here.
 Versions follow [Semantic Versioning](https://semver.org/).
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.3.0] — 2026-07-24
+### Added
+- **android**: Polar-alignment assistant, home dashboard, official icon
+
+
 ## [0.2.0] — 2026-07-22
 ### Added
 - **android**: Settings tab with persisted configuration and about
