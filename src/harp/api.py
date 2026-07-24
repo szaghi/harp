@@ -22,6 +22,7 @@ from harp.catalog import (
 )
 from harp.horizon import Horizon, build_profile, validate_profile, write_hrz
 from harp.links import LINK_PROVIDERS, target_link
+from harp.log import LogEntry, ObservationLog, TargetTotal, default_log_path, fmt_integration
 from harp.mosaic import Panel, mosaic_panels
 from harp.optics import Rig, parse_sensor
 from harp.planner import NightPlan, PlanRow, Site, desirability, plan_night
@@ -32,14 +33,14 @@ from harp.sky import BORTLE_SQM, contrast_score, sky_brightness, surface_brightn
 # 2: added the multi-site store (SitesConfig/SiteEntry) and site JSON helpers.
 # 3: Solar System targets (Target.body/coord=None) and the target
 #    classification field, both surfaced additively in every converter.
-# 4: sky-quality contrast (BORTLE_SQM/contrast_score/sky_brightness/
-#    surface_brightness) plus optional Site.bortle/sqm and Rig.aperture_mm.
-#    Additive and neutral by default: a site that declares no sky ranks
-#    exactly as before.
-# 4: polar alignment (polar_align_to_dict, MOUNTS/Mount/ReticleFix) for the
-#    Android alignment tab's polar-scope stage. Purely additive -- every
-#    existing converter and signature is unchanged.
-API_VERSION = "4"
+# 4: polar alignment (polar_align_to_dict, MOUNTS/Mount/ReticleFix), plus
+#    sky-quality contrast (BORTLE_SQM/contrast_score/sky_brightness/
+#    surface_brightness) with optional Site.bortle/sqm and Rig.aperture_mm.
+#    Neutral by default: a site that declares no sky ranks exactly as before.
+# 5: the observation log (LogEntry/ObservationLog/TargetTotal, log_to_dict),
+#    so a frontend can record and total what was actually imaged. Additive --
+#    no existing converter or signature changed.
+API_VERSION = "5"
 
 __all__ = [
     "API_VERSION",
@@ -47,8 +48,10 @@ __all__ = [
     "FILTER_TOKENS",
     "MOUNTS",
     "Horizon",
+    "LogEntry",
     "Mount",
     "NightPlan",
+    "ObservationLog",
     "Panel",
     "PlanRow",
     "ReticleFix",
@@ -57,15 +60,19 @@ __all__ = [
     "SiteEntry",
     "SitesConfig",
     "Target",
+    "TargetTotal",
     "build_profile",
     "build_targets",
     "contrast_score",
     "default_config_path",
+    "default_log_path",
     "desirability",
     "filter_targets",
     "find_targets",
+    "fmt_integration",
     "info_to_dict",
     "kind_class",
+    "log_to_dict",
     "mosaic_panels",
     "mounts_to_dict",
     "panels_to_dict",
@@ -341,6 +348,31 @@ def polar_align_to_dict(
         "mount_label": fix.mount.label,
         "mirrored": fix.mount.mirrored,
         "mount_verified": fix.mount.verified,
+    }
+
+
+def log_to_dict(log: ObservationLog) -> dict[str, Any]:
+    """JSON-safe view of the observation log: per-target totals.
+
+    Totals rather than raw entries, because the question a frontend asks is
+    "how much do I have on this target" — the individual sessions are a
+    drill-down, available from :meth:`harp.log.ObservationLog.for_target`.
+    """
+    return {
+        "api_version": API_VERSION,
+        "log": str(log.path),
+        "targets": [
+            {
+                "target": t.target,
+                "sessions": t.sessions,
+                "integration_s": round(t.integration_s, 1),
+                "integration": t.integration_label,
+                "first_date": t.first_date,
+                "last_date": t.last_date,
+                "filters": t.filters,
+            }
+            for t in log.totals()
+        ],
     }
 
 

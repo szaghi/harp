@@ -2,6 +2,7 @@ package org.szaghi.harp
 
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -29,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.datastore.preferences.core.Preferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -36,7 +38,7 @@ import kotlinx.coroutines.withContext
 
 /** Settings + About: the on-device mirror of the CLI configuration surface. */
 @Composable
-fun SettingsScreen(vm: SettingsViewModel) {
+fun SettingsScreen(vm: SettingsViewModel, logVm: LogViewModel) {
     val s by vm.settings.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -166,6 +168,44 @@ fun SettingsScreen(vm: SettingsViewModel) {
             "wikipedia may 404 on faint objects; aladin always works (sky viewer)",
             style = MaterialTheme.typography.bodySmall,
         )
+
+        Section("Observation log")
+        Text(
+            "Sessions you log from the Plan tab are stored in observations.yaml, " +
+                "beside your sites — the same file the 'harp log' CLI reads. It is " +
+                "the one thing here you cannot regenerate, so keep a copy.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Spacer(Modifier.height(6.dp))
+        OutlinedButton(onClick = {
+            logVm.exportText { text ->
+                if (text == null) {
+                    Toast.makeText(context, "nothing logged yet", Toast.LENGTH_SHORT).show()
+                    return@exportText
+                }
+                // Share a COPY from cacheDir/exports (the only path the
+                // FileProvider exposes). Never hand another app a handle to the
+                // live log: a share target that rewrote the file it was given
+                // would corrupt the user's history.
+                runCatching {
+                    val dir = java.io.File(context.cacheDir, "exports").apply { mkdirs() }
+                    val out = java.io.File(dir, "observations.yaml")
+                    out.writeText(text)
+                    val uri = FileProvider.getUriForFile(
+                        context, "${context.packageName}.fileprovider", out,
+                    )
+                    val share = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_STREAM, uri)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    context.startActivity(Intent.createChooser(share, "Share observations.yaml"))
+                }.onFailure {
+                    Toast.makeText(context, "export failed: ${it.message}", Toast.LENGTH_LONG)
+                        .show()
+                }
+            }
+        }) { Text("Export observation log") }
 
         Section("About")
         Text(

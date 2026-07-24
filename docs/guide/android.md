@@ -21,7 +21,10 @@ astronomical core are all on the phone. No account, no network, no telemetry.
   and `.hrz` export via the share sheet — ready for N.I.N.A. and `harp plan`.
 - **Plan** — the full planner on-device: the same ranking the CLI produces,
   with client-side filter chips by target class and emission type. Results are
-  computed from the selected saved site and its captured horizon.
+  computed from the selected saved site and its captured horizon. Each row also
+  carries a **log** action and shows how much integration that target already
+  has (`▣ 8h 20m`), writing to the same `observations.yaml` the
+  [`harp log`](/guide/usage#observation-log) CLI reads.
 - **Align** — polar alignment in two stages: a live compass rose for finding
   the pole by eye, then an assistant that reads the phone's attitude while it
   is fixed to the mount and gives azimuth/altitude bolt corrections with a
@@ -32,12 +35,24 @@ astronomical core are all on the phone. No account, no network, no telemetry.
   selection, Sharpless options, refraction pressure/temperature, link
   provider, and appearance.
 
-## Saved sites
+## Saved sites and the observation log
 
 Sites live in the app's private storage in exactly the CLI's layout —
 `sites.yaml` plus one `.hrz` per site — so the whole directory can be copied
 to a desktop `~/.config/harp/` and used with `harp --site`. Capturing a
 horizon in the wizard saves it straight into the selected site.
+
+The observation log sits beside them as `observations.yaml`, in the same
+format `harp log` uses: log a session on the phone at the telescope, copy the
+file to your desktop, and `harp log list` totals it. Totals appear on plan
+rows purely as information — they never influence the ranking, because
+"already shot" is not the same as "done".
+
+::: warning Export your log
+Sessions are the one thing in the app you cannot regenerate. **Settings →
+Export observation log** shares the file out through the share sheet; a copy
+of it is what protects your history if the phone is lost or reset.
+:::
 
 ## Appearance
 

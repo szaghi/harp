@@ -16,8 +16,8 @@ it.
 
 Commands: `harp plan` (rank tonight's targets), `harp mosaic` (per-panel
 coordinates), `harp info` (details on one target), `harp horizon` (build the
-`.hrz` mask), `harp sites` (manage saved observing sites), `harp list` (show
-configured sites/optics).
+`.hrz` mask), `harp sites` (manage saved observing sites), `harp log` (record what you
+actually imaged), `harp list` (show configured sites/optics).
 
 Tell HARP your sky as well as your horizon (`--bortle`, or a measured
 `--sqm`) and the ranking accounts for [light

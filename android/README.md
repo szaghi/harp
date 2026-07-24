@@ -122,6 +122,29 @@ other.
   the full polar-scope reticle geometry (precession-correct separation, hour
   angle, per-mount `MOUNTS` transform) as a library surface for other
   frontends, though the app no longer draws a reticle clock.
+- **Phase 7 — observation log** (`harp.api` `API_VERSION` 5): every Plan row
+  gains a **log** action and shows how much integration that target already
+  has (`▣ 8h 20m`), written through `log_bridge` → `harp.log` into
+  `<filesDir>/observations.yaml` — beside `sites.yaml`, in the exact format
+  the `harp log` CLI reads, so a session logged at the telescope totals on the
+  desktop.
+
+  Three deliberate constraints:
+  - **Totals never touch the ranking.** They are displayed, not scored:
+    "already shot" is not "done", and quietly demoting a target the user may
+    want to revisit is their judgement to make, not the planner's.
+  - **One `totals_map` call per tab entry**, not one per row. A 30-row plan
+    would otherwise re-read and re-parse the file 30 times.
+  - **Export shares a COPY.** `res/xml/file_paths.xml` exposes only
+    `cacheDir/exports/`, so the log is copied there first. That is right
+    beyond mere compliance: handing another app a URI to the live log means a
+    share target that rewrites what it was given would corrupt the user's
+    history.
+
+  This is the only durable user data in the app that cannot be regenerated —
+  a plan is recomputed in seconds, an observing history is gone. Hence writes
+  go straight through the core's own save (no dirty in-memory copy a process
+  death would discard), and Settings carries an export button.
 - **Core capability — Sharpless emission nebulae**: the shared core ships the
   313 Sharpless (Sh2) H II regions and their measured sizes, correcting
   OpenNGC's under-sized nebulae via a vendored Sh2↔NGC/IC/M concordance
@@ -249,6 +272,10 @@ With adb connected, live Python tracebacks beat screenshots:
    must move down. A dot that runs the wrong way means the mounting toggle is
    set to the other geometry. The shown pole altitude should sit ~1′ **above**
    your bare latitude (refraction).
+7. *Plan* tab → tap **log** on a row, save a session, and confirm the badge
+   (`▣ 5h`) appears on that row. Then *Settings* → **Export observation log**
+   and check the shared file parses with `harp log list --path <file>` on the
+   desktop — that round-trip is what proves the app and CLI share a format.
 
 ## Capture procedure (field-tested)
 

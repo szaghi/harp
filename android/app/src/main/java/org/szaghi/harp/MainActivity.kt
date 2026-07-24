@@ -80,6 +80,10 @@ fun HarpApp() {
     // One sites store shared by the Plan picker and the Horizon Save button.
     val sitesVm = viewModel<SitesViewModel>()
     LaunchedEffect(Unit) { sitesVm.refresh() }
+    // The observation log is hoisted too: the Plan tab shows per-target totals
+    // and logs sessions, and Settings offers the export — one instance keeps
+    // those views consistent without either re-reading the file behind the other.
+    val logVm = viewModel<LogViewModel>()
 
     HarpAppTheme(nightVision = settings.nightVision, indoorThemeId = settings.indoorTheme) {
         Scaffold { padding ->
@@ -112,9 +116,9 @@ fun HarpApp() {
                 when (tab) {
                     0 -> HomeScreen(viewModel<HomeViewModel>()) { tab = it }
                     1 -> HorizonScreen(viewModel<HorizonViewModel>(), sitesVm)
-                    2 -> PlanScreen(viewModel<PlanViewModel>(), sitesVm)
+                    2 -> PlanScreen(viewModel<PlanViewModel>(), sitesVm, logVm)
                     3 -> CompassScreen(viewModel<CompassViewModel>())
-                    4 -> SettingsScreen(settingsVm)
+                    4 -> SettingsScreen(settingsVm, logVm)
                 }
             }
         }

@@ -502,6 +502,62 @@ geometric mean with a floor, so a hopeless-from-here object sinks but still
 appears. If your sky improves — or you drive somewhere darker — change one
 number and the ranking follows.
 
+## Observation log
+
+HARP plans a night and then forgets it. `harp log` closes the loop, and it
+records **integration time** rather than prose because the question imagers
+actually ask is quantitative: *how much data do I already have on this target?*
+
+```bash
+harp log add M42                       # prompts for subs, exposure, filter, notes
+harp log add M42 --subs 60 --exposure 300 --filter L-eXtreme --no-interactive
+harp log list                          # per-target totals, most-imaged first
+harp log show M42                      # every session on one target
+harp log list --json                   # machine-readable
+```
+
+Run it bare and it asks only for what you left unset — the mode that actually
+gets used at the end of a session. Pass `--no-interactive` in scripts.
+
+```
+$ harp log list
+target                       total  runs  first      last        filters
+M 42                        8h 20m     2  2026-02-15 2026-02-20  L-eXtreme
+M31                         4h 30m     1  2026-02-18 2026-02-18
+```
+
+Each session is its own record, so a target imaged across three nights is three
+entries summing to one total. That keeps every row an immutable statement of
+fact rather than a running tally to update in place. `M42` and `M 42` are
+recognised as the same object, matched case- and space-insensitively.
+
+The log lives at `~/.config/harp/observations.yaml` — beside `sites.yaml`, so
+one directory holds everything HARP persists and backing up a setup means
+copying one folder. It is plain YAML, deliberately hand-editable:
+
+```yaml
+observations:
+  - target: M42
+    date: 2026-02-15
+    subs: 60
+    exposure_s: 300.0
+    filter: L-eXtreme
+```
+
+Use `--path` to keep a separate log (per telescope, or for testing).
+
+The [Android app](/guide/android) writes the same file: each plan row has a
+**log** action and shows the target's accumulated integration, so you can
+record a session at the telescope and total it later from the desktop CLI.
+Export it from the app's Settings tab.
+
+::: tip What is deliberately not recorded
+Seeing, transparency and temperature are absent by design. They are laborious
+to type at 2am, and most of what they would tell you HARP already computed when
+it planned the night. An entry with no `subs`/`exposure_s` is still valid —
+"clouded out" is a legitimate thing to record.
+:::
+
 ## Scripting: JSON and the Python API
 
 Three commands emit machine-readable output — `harp plan --json`,
@@ -541,11 +597,13 @@ What the surface offers, by area:
 | Horizon | `Horizon`, `build_profile`, `validate_profile`, `write_hrz` |
 | Saved sites | `SitesConfig`, `SiteEntry`, `default_config_path`, `slugify` |
 | Polar alignment | `polar_align_to_dict`, `reticle_position`, `MOUNTS`, `Mount`, `ReticleFix` |
-| JSON converters | `plan_to_dict`, `target_to_dict`, `info_to_dict`, `panels_to_dict`, `site_to_dict`, `mounts_to_dict` |
+| Sky quality | `contrast_score`, `sky_brightness`, `surface_brightness`, `BORTLE_SQM` |
+| Observation log | `ObservationLog`, `LogEntry`, `TargetTotal`, `default_log_path`, `fmt_integration` |
+| JSON converters | `plan_to_dict`, `target_to_dict`, `info_to_dict`, `panels_to_dict`, `site_to_dict`, `mounts_to_dict`, `log_to_dict` |
 | Links | `target_link` |
 
 ::: info API stability
-Breaking changes to `harp.api` bump `API_VERSION` (currently **4**) and the
+Breaking changes to `harp.api` bump `API_VERSION` (currently **5**) and the
 package minor version. The Android app is built on this same surface, which is
 what keeps it from drifting away from the CLI.
 :::

@@ -2,7 +2,9 @@ package org.szaghi.harp
 
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -15,22 +17,27 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 
 /**
@@ -40,7 +47,21 @@ import androidx.compose.ui.unit.dp
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun PlanScreen(vm: PlanViewModel, sitesVm: SitesViewModel) {
+fun PlanScreen(vm: PlanViewModel, sitesVm: SitesViewModel, logVm: LogViewModel) {
+    // Which target the log dialog is open for; null = closed.
+    var logTarget by rememberSaveable { mutableStateOf<String?>(null) }
+    // Totals are read once per entry to the tab: the log only changes when the
+    // user logs something, and addSession refreshes them itself.
+    LaunchedEffect(Unit) { logVm.refresh() }
+
+    logTarget?.let { target ->
+        LogSessionDialog(
+            target = target,
+            logVm = logVm,
+            onDismiss = { logTarget = null },
+        )
+    }
+
     val context = LocalContext.current
     val selected by sitesVm.selectedName.collectAsState()
 
@@ -152,11 +173,24 @@ fun PlanScreen(vm: PlanViewModel, sitesVm: SitesViewModel) {
                             style = MaterialTheme.typography.titleMedium,
                             modifier = Modifier.weight(1f),
                         )
+                        // Integration already logged on this target. Shown for
+                        // information only — it never touches the score, since
+                        // "already shot" is not "done" and demoting a target
+                        // the user may want to revisit is their call, not ours.
+                        logVm.totalFor(r.name)?.let { t ->
+                            Text(
+                                "▣ ${t.integration}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(end = 8.dp),
+                            )
+                        }
                         Text(
                             "${r.score.toInt()}",
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.primary,
                         )
+                        TextButton(onClick = { logTarget = r.name }) { Text("log") }
                     }
                     Text(
                         "${r.hours} h  |  ${r.window}  |  Moon ${r.moon}  |  ${r.frame}",
@@ -168,3 +202,106 @@ fun PlanScreen(vm: PlanViewModel, sitesVm: SitesViewModel) {
         }
     }
 }
+
+/**
+ * Record one imaging session on [target].
+ *
+ * Only subs, exposure and filter are asked for: those three are what make the
+ * entry answer "how much data do I have", and anything more is friction at the
+ * end of a cold night. Notes are there for the one thing worth remembering.
+ * The date defaults to today and is editable, because a session logged the
+ * morning after belongs to the night before.
+ */
+@Composable
+private fun LogSessionDialog(
+    target: String,
+    logVm: LogViewModel,
+    onDismiss: () -> Unit,
+) {
+    var date by rememberSaveable(target) { mutableStateOf(todayIso()) }
+    var subs by rememberSaveable(target) { mutableStateOf("") }
+    var exposure by rememberSaveable(target) { mutableStateOf("") }
+    var filter by rememberSaveable(target) { mutableStateOf("") }
+    var notes by rememberSaveable(target) { mutableStateOf("") }
+
+    val existing = logVm.totalFor(target)
+    val context = LocalContext.current
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Log $target") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (existing != null) {
+                    Text(
+                        "already ${existing.integration} over ${existing.sessions} session(s)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                OutlinedTextField(
+                    value = date,
+                    onValueChange = { date = it },
+                    label = { Text("date (YYYY-MM-DD)") },
+                    singleLine = true,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = subs,
+                        onValueChange = { subs = it.filter { c -> c.isDigit() } },
+                        label = { Text("subs") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f),
+                    )
+                    OutlinedTextField(
+                        value = exposure,
+                        onValueChange = { exposure = it.filter { c -> c.isDigit() || c == '.' } },
+                        label = { Text("exposure (s)") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                OutlinedTextField(
+                    value = filter,
+                    onValueChange = { filter = it },
+                    label = { Text("filter") },
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = { Text("notes") },
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = !logVm.busy,
+                onClick = {
+                    logVm.addSession(
+                        target = target,
+                        date = date.ifBlank { todayIso() },
+                        subs = subs.toIntOrNull(),
+                        exposureS = exposure.toDoubleOrNull(),
+                        filter = filter,
+                        site = "",
+                        rig = "",
+                        notes = notes,
+                    ) { msg ->
+                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                    }
+                    onDismiss()
+                },
+            ) { Text("Save") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
+}
+
+/** Today as YYYY-MM-DD, the log's date format. */
+private fun todayIso(): String =
+    java.time.LocalDate.now().toString()

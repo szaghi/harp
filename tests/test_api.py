@@ -20,7 +20,7 @@ def test_plan_json_shape(runner: CliRunner) -> None:
     result = runner.invoke(app, [*PLAN_ARGS, "--no-plot", "--top", "300", "--json"])
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
-    assert data["api_version"] == "4"
+    assert data["api_version"] == "5"
     assert data["night"]["date"] == "2026-08-15"
     assert data["site"]["label"] == "Castelli Balcony"
     assert data["rig"]["fov_w_arcmin"] > data["rig"]["fov_h_arcmin"]
@@ -80,7 +80,7 @@ def test_polar_align_to_dict_is_json_safe() -> None:
 
     d = polar_align_to_dict(datetime(2026, 7, 23, 22, tzinfo=UTC), 41.9, 12.5)
     assert json.loads(json.dumps(d)) == d
-    assert d["api_version"] == "4"
+    assert d["api_version"] == "5"
     assert d["pole_az"] == 0.0
     assert d["pole_star"] == "Polaris"
     assert d["northern"] is True

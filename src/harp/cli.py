@@ -738,3 +738,165 @@ def sites_set_default(
     except HarpError as e:
         raise _fail(e) from None
     print(f"Default site is now '{name}'.")
+
+
+# ---------------------------------------------------------------------------
+# Observation log
+# ---------------------------------------------------------------------------
+
+log_app = typer.Typer(name="log", help="Record and review what you actually imaged.")
+app.add_typer(log_app)
+
+
+def _log_store(path: str | None):
+    """Load the observation log, or exit with a helpful error."""
+    from harp.log import ObservationLog
+
+    try:
+        return ObservationLog.load(path)
+    except HarpError as e:
+        raise _fail(e) from None
+
+
+@log_app.command("add")
+def log_add(
+    target: str = typer.Argument(..., help="Target imaged, e.g. M42."),
+    date: str | None = typer.Option(None, help="Session date YYYY-MM-DD (default: today)."),
+    subs: int | None = typer.Option(None, help="Number of sub-exposures kept."),
+    exposure: float | None = typer.Option(None, help="Length of one sub-exposure (s)."),
+    filter_name: str | None = typer.Option(
+        None, "--filter", help="Filter used, e.g. L-eXtreme, Ha, none."
+    ),
+    site: str | None = typer.Option(None, help="Site label."),
+    rig: str | None = typer.Option(None, help="Optics label."),
+    notes: str | None = typer.Option(None, help="Free-text notes."),
+    interactive: bool = typer.Option(
+        True,
+        "--interactive/--no-interactive",
+        help="Prompt for the fields left unset. Use --no-interactive in scripts.",
+    ),
+    path: str | None = typer.Option(
+        None, help="Log file (default: ~/.config/harp/observations.yaml)."
+    ),
+) -> None:
+    """Record one imaging session.
+
+    Fully scriptable with flags; run it bare and it asks for the rest, which
+    is the mode that actually gets used at the end of a session.
+    """
+    from harp.log import LogEntry, today_iso
+
+    store = _log_store(path)
+    date = date or today_iso()
+
+    # Only prompt for what was not supplied, so a partially-flagged call does
+    # not re-ask what the caller already answered.
+    if interactive:
+        if subs is None:
+            subs = typer.prompt("Sub-exposures kept", default=0, type=int) or None
+        if exposure is None:
+            exposure = typer.prompt("Exposure per sub (s)", default=0.0, type=float) or None
+        if filter_name is None:
+            filter_name = typer.prompt("Filter", default="", show_default=False) or ""
+        if notes is None:
+            notes = typer.prompt("Notes", default="", show_default=False) or ""
+
+    entry = LogEntry(
+        target=target,
+        date=date,
+        subs=subs,
+        exposure_s=exposure,
+        filter_name=filter_name or "",
+        site=site or "",
+        rig=rig or "",
+        notes=notes or "",
+    )
+    store.add(entry)
+    try:
+        store.save()
+    except OSError as e:
+        raise _fail(e) from None
+
+    total = store.integration_for(target)
+    from harp.log import fmt_integration
+
+    print(f"Logged {entry.target} on {entry.date}: {entry.integration_label}")
+    print(
+        f"Total on {entry.target}: {fmt_integration(total)} over {len(store.for_target(target))} session(s)"
+    )
+    print(f"Log: {store.path}")
+
+
+@log_app.command("list")
+def log_list(
+    path: str | None = typer.Option(
+        None, help="Log file (default: ~/.config/harp/observations.yaml)."
+    ),
+    as_json: bool = typer.Option(False, "--json", help="Emit JSON instead of a table."),
+) -> None:
+    """Show per-target totals, most-imaged first."""
+    store = _log_store(path)
+    totals = store.totals()
+    if as_json:
+        import json
+
+        from harp.api import API_VERSION
+
+        print(
+            json.dumps(
+                {
+                    "api_version": API_VERSION,
+                    "log": str(store.path),
+                    "targets": [
+                        {
+                            "target": t.target,
+                            "sessions": t.sessions,
+                            "integration_s": round(t.integration_s, 1),
+                            "integration": t.integration_label,
+                            "first_date": t.first_date,
+                            "last_date": t.last_date,
+                            "filters": t.filters,
+                        }
+                        for t in totals
+                    ],
+                },
+                indent=2,
+            )
+        )
+        return
+    print(f"Log: {store.path}")
+    if not totals:
+        print("(nothing logged yet — record a session with 'harp log add TARGET')")
+        return
+    print(f"{'target':<24} {'total':>9} {'runs':>5}  {'first':<11}{'last':<11} filters")
+    for t in totals:
+        print(
+            f"{t.target:<24} {t.integration_label:>9} {t.sessions:>5}  "
+            f"{t.first_date:<11}{t.last_date:<11} {', '.join(t.filters)}"
+        )
+
+
+@log_app.command("show")
+def log_show(
+    target: str = typer.Argument(..., help="Target to show every session for."),
+    path: str | None = typer.Option(
+        None, help="Log file (default: ~/.config/harp/observations.yaml)."
+    ),
+) -> None:
+    """List every recorded session on one target."""
+    from harp.log import fmt_integration
+
+    store = _log_store(path)
+    entries = store.for_target(target)
+    if not entries:
+        print(f"No sessions logged for '{target}'.")
+        return
+    print(f"{'date':<12} {'integration':>12} {'subs':>5} {'exp(s)':>8}  filter")
+    for e in entries:
+        subs = "--" if e.subs is None else str(e.subs)
+        exp = "--" if e.exposure_s is None else f"{e.exposure_s:g}"
+        print(f"{e.date:<12} {e.integration_label:>12} {subs:>5} {exp:>8}  {e.filter_name}")
+        if e.notes:
+            print(f"{'':<12} note: {e.notes}")
+    total = sum(e.integration_s for e in entries)
+    print(f"\nTotal: {fmt_integration(total)} over {len(entries)} session(s)")
