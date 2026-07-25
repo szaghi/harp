@@ -133,6 +133,15 @@ fun PlanScreen(
             Text(vm.summary, style = MaterialTheme.typography.bodySmall)
             Spacer(Modifier.height(4.dp))
         }
+        if (vm.cometWarning.isNotEmpty()) {
+            // Non-fatal: the offline plan succeeded, comets were skipped.
+            Text(
+                vm.cometWarning,
+                color = MaterialTheme.colorScheme.tertiary,
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Spacer(Modifier.height(4.dp))
+        }
 
         // client-side filters: instant re-filtering, no re-planning
         var emissionMode by remember { mutableStateOf(0) } // 0 all, 1 emission, 2 non
@@ -152,9 +161,11 @@ fun PlanScreen(
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 // Nature classes, matching the CLI --filter taxonomy. 'planet'
-                // and 'moon' cover the Solar System bodies; 'planetary' stays
-                // the (distinct) planetary-nebula class.
-                listOf("nebula", "galaxy", "cluster", "planetary", "planet", "moon").forEach { c ->
+                // and 'moon' cover the Solar System bodies; 'comet' the online
+                // comets; 'planetary' stays the (distinct) planetary-nebula
+                // class.
+                listOf("nebula", "galaxy", "cluster", "planetary", "planet", "moon", "comet")
+                    .forEach { c ->
                     FilterChip(
                         selected = c in classFilter,
                         onClick = {

@@ -142,6 +142,25 @@ fun SettingsScreen(vm: SettingsViewModel, logVm: LogViewModel) {
         NumField("Sharpless min diam (arcmin)", s.sharplessMinDiam, Modifier.fillMaxWidth()) {
             if (it >= 0f) vm.set(SettingsRepo.SHARPLESS_MIN_DIAM, it)
         }
+        Label("Comets (ONLINE — fetches MPC elements)")
+        ChipRow(
+            listOf(
+                "included" to s.comets,
+                "off" to !s.comets,
+            ),
+        ) { vm.set(SettingsRepo.COMETS, it == "included") }
+        if (s.comets) {
+            NumField("Comet mag limit (apparent)", s.cometMagLimit, Modifier.fillMaxWidth()) {
+                if (it > 0f) vm.set(SettingsRepo.COMET_MAG_LIMIT, it)
+            }
+        }
+        Text(
+            "the only online part of a plan: comet positions come from orbital " +
+                "elements fetched from the Minor Planet Center. Offline, the plan " +
+                "still runs and a notice says comets were skipped. The mag limit " +
+                "hides comets predicted too faint to image tonight.",
+            style = MaterialTheme.typography.bodySmall,
+        )
 
         Section("Polar alignment (reticle refraction)")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

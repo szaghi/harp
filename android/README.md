@@ -164,6 +164,19 @@ other.
 
   `MAX_DAYS = 90` in the bridge is a backstop so a malformed request cannot
   start a multi-minute sweep the user has no way to cancel.
+- **Phase 9 — comets** (`harp.api` `API_VERSION` 7): a Settings toggle adds
+  currently observable comets to the plan, positioned from Minor Planet Center
+  orbital elements fetched at run time and propagated with a two-body Kepler
+  model (`harp.comets`). Comet rows carry the `comet` class (filterable with the
+  same chips), and their magnitude is the apparent magnitude predicted for
+  tonight; a `comet_mag_limit` field hides the unimageable ones.
+
+  Comets are the **only online part of a plan**, so the integration is built to
+  degrade, not fail: `planner_bridge.run_plan` fetches best-effort, and if the
+  fetch fails (offline, MPC unreachable) it plans WITHOUT comets and returns a
+  `comet_warning` the Plan tab shows as a non-fatal notice — the rest of the sky
+  is offline and must still be planned. The toggle is OFF by default so opting
+  into the network is deliberate.
 - **Core capability — Sharpless emission nebulae**: the shared core ships the
   313 Sharpless (Sh2) H II regions and their measured sizes, correcting
   OpenNGC's under-sized nebulae via a vendored Sh2↔NGC/IC/M concordance

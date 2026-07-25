@@ -20,6 +20,7 @@ from harp.catalog import (
     kind_class,
     user_targets,
 )
+from harp.comets import CometElements, comet_targets, fetch_comet_elements
 from harp.horizon import Horizon, build_profile, validate_profile, write_hrz
 from harp.links import LINK_PROVIDERS, target_link
 from harp.log import LogEntry, ObservationLog, TargetTotal, default_log_path, fmt_integration
@@ -44,13 +45,18 @@ from harp.sky import BORTLE_SQM, contrast_score, sky_brightness, surface_brightn
 #    schedule_to_dict) -- "when should I shoot this target", the inverse of
 #    plan_night. Additive, and it reuses the same desirability score rather
 #    than inventing a second definition of "good".
-API_VERSION = "6"
+# 7: comets (CometElements/comet_targets/fetch_comet_elements) as moving
+#    targets positioned by two-body Kepler propagation from MPC elements.
+#    ONLINE opt-in (like ss_moons): build_targets gains comet_elements, and a
+#    new 'comet' class/filter token. Offline plans are byte-for-byte unchanged.
+API_VERSION = "7"
 
 __all__ = [
     "API_VERSION",
     "BORTLE_SQM",
     "FILTER_TOKENS",
     "MOUNTS",
+    "CometElements",
     "Horizon",
     "LogEntry",
     "Mount",
@@ -69,10 +75,12 @@ __all__ = [
     "best_nights",
     "build_profile",
     "build_targets",
+    "comet_targets",
     "contrast_score",
     "default_config_path",
     "default_log_path",
     "desirability",
+    "fetch_comet_elements",
     "filter_targets",
     "find_targets",
     "fmt_integration",

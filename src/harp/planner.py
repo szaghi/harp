@@ -16,6 +16,8 @@ from harp.catalog import Target, suggest_detail
 from harp.ephemeris import (
     MoonState,
     NightWindow,
+    comet_altaz,
+    comet_apparent_mag,
     compute_night,
     fmt_hm,
     moon_state,
@@ -131,6 +133,24 @@ def _solar_radius_map() -> dict[str, float]:
     from harp.solar_system import SS_BODIES, SS_MOONS
 
     return {b.body: b.radius_km for b in (*SS_BODIES, *SS_MOONS)}
+
+
+def _angular_sep(
+    alt1: np.ndarray, az1: np.ndarray, alt2: np.ndarray, az2: np.ndarray
+) -> np.ndarray:
+    """Great-circle separation between two alt-az tracks, in degrees.
+
+    Used for the Moon separation of comets, whose position moves per grid
+    sample and so has no single :class:`~astropy.coordinates.SkyCoord`. The
+    Moon track ``(alt1, az1)`` is ``(n_times,)``; the comet tracks
+    ``(alt2, az2)`` are ``(n_comets, n_times)``; the result broadcasts to
+    ``(n_comets, n_times)``.
+    """
+    a1 = np.radians(alt1)
+    a2 = np.radians(alt2)
+    daz = np.radians(az2 - az1)
+    cos_sep = np.sin(a1) * np.sin(a2) + np.cos(a1) * np.cos(a2) * np.cos(daz)
+    return np.degrees(np.arccos(np.clip(cos_sep, -1.0, 1.0)))
 
 
 def longest_window(mask: np.ndarray) -> tuple[int, int, int]:
@@ -358,6 +378,7 @@ def plan_night(
     min_moon_sep: float = 30.0,
     min_hours: float = 1.0,
     min_peak_alt: float = 20.0,
+    comet_mag_limit: float | None = None,
     horizon_label: str = "",
     sort: str = "score",
 ) -> NightPlan:
@@ -387,6 +408,12 @@ def plan_night(
         Keep targets with at least this many usable hours.
     min_peak_alt : float
         Keep targets peaking at least this high (degrees).
+    comet_mag_limit : float or None
+        Drop comets whose PREDICTED apparent magnitude for the night is fainter
+        than this. Applies only to comets (their brightness is distance- and
+        time-dependent, so it can only be judged after propagation); ``None``
+        keeps every comet. A comet with an unpredictable brightness (no ``H``)
+        is always kept -- unknown is not the same as faint.
     horizon_label : str
         Horizon description for the report header (e.g. the .hrz filename).
     sort : str
@@ -416,32 +443,55 @@ def plan_night(
         # bodies (no fixed coord — position recomputed per grid sample). The
         # two ephemeris paths are stitched back into the original target order
         # so all downstream indexing (rows, curves, charts) is unaffected.
+        # Three position paths, each a different ephemeris: fixed deep-sky
+        # objects (one ICRS coord), Solar System bodies (get_body by name),
+        # and comets (two-body Kepler propagation from orbital elements). A
+        # comet carries no fixed coord AND no body name, so it must be split
+        # out before the fixed path, which would dereference a None coord.
         is_solar = np.array([t.body is not None for t in targets])
+        is_comet = np.array([t.elements is not None for t in targets])
+        is_fixed = ~is_solar & ~is_comet
         n_t = len(window.times)
         alt = np.empty((len(targets), n_t))
         az = np.empty((len(targets), n_t))
-        fixed = [t for t in targets if t.body is None]
+        fixed = [t for t, f in zip(targets, is_fixed, strict=True) if f]
         solar = [t for t in targets if t.body is not None]
+        comets = [t for t in targets if t.elements is not None]
         if fixed:
             f_alt, f_az = target_altaz(observer, window, fixed)
-            alt[~is_solar], az[~is_solar] = f_alt, f_az
+            alt[is_fixed], az[is_fixed] = f_alt, f_az
         if solar:
             s_alt, s_az = solar_altaz(site.location, window, [t.body for t in solar])
             alt[is_solar], az[is_solar] = s_alt, s_az
-        # Moon separation only meaningful for fixed objects; SS bodies get a
-        # placeholder (large) separation so the min-sep filter never drops
-        # them (a planet 15 deg from the Moon is still a fine planet, and the
-        # Moon's separation to itself is 0).
+        if comets:
+            c_alt, c_az = comet_altaz(site.location, window, [t.elements for t in comets])
+            alt[is_comet], az[is_comet] = c_alt, c_az
+        # Moon separation is meaningful for fixed objects AND comets (both are
+        # faint sources competing with moonlight), but not for Solar System
+        # bodies (bright disks, and the Moon's separation to itself is 0). SS
+        # bodies get a placeholder (large) separation so the min-sep filter
+        # never drops them. The Moon's own alt-az track is shared by all.
         moon = moon_state(
             site.location, observer, window, [t.coord for t in fixed] if fixed else []
+        )
+        # Comet Moon separation from the already-computed alt-az tracks: the
+        # comet has no fixed coord, so its separation varies per grid sample.
+        # Angular separation on the sphere between the Moon and each comet.
+        comet_sep = (
+            _angular_sep(moon.alt, moon.az, alt[is_comet], az[is_comet])
+            if comets
+            else np.empty((0, n_t))
         )
 
     solar_radii = _solar_radius_map()
     # Full-length arrays in original order: fixed rows use real Moon
-    # separation; SS rows use +inf so the min-sep cut is a no-op for them.
+    # separation; comet rows use their per-sample separation; SS rows use +inf
+    # so the min-sep cut is a no-op for them.
     sep = np.full((len(targets), n_t), np.inf)
     if fixed:
-        sep[~is_solar] = moon.sep
+        sep[is_fixed] = moon.sep
+    if comets:
+        sep[is_comet] = comet_sep
     moon_up = moon.up  # (n_times,) shared across targets
 
     above = alt > horizon.altitude(az)
@@ -468,6 +518,11 @@ def plan_night(
             else "--"
         )
         cont_h = round(cw * window.dt_hours, 1)
+        # Magnitude used for ranking and the table. For most targets it is the
+        # catalogue value; a comet overrides it with the magnitude PREDICTED
+        # for tonight (H is an absolute magnitude, meaningless as-is against
+        # apparent deep-sky magnitudes).
+        mag_use = t.mag
         if t.body is not None:
             # Solar System body: live apparent disk, no mosaic/Moon-impact
             # logic. The disk size flows into the FOV score so a tiny planet
@@ -479,6 +534,26 @@ def plan_night(
             moon_verdict = "n/a"
             moon_factor = 1.0  # Moon impact undefined for a Solar System body
             sep_disp = 0.0
+        elif t.elements is not None:
+            # Comet: a moving, diffuse source. Unlike a planet it IS hurt by
+            # moonlight, so it gets a real Moon separation and impact verdict
+            # (treated as broadband -- a comet's coma is continuum, not a
+            # narrowband line). It has no meaningful apparent disk to frame, so
+            # the FOV term stays neutral (maj=None) and the frame is 'comet'.
+            # Its brightness is the standard comet law evaluated for tonight,
+            # so a close faint comet correctly outranks a distant bright one.
+            maj = None
+            frame = "comet"
+            mag_use = comet_apparent_mag(site.location, window, t.elements)
+            # Prune a comet predicted too faint to image tonight. A comet with
+            # no predictable brightness (mag_use is None) is kept: unknown is
+            # not faint.
+            if comet_mag_limit is not None and mag_use is not None and mag_use > comet_mag_limit:
+                continue
+            sep_min = float(sep[i][win].min()) if win.any() else 180.0
+            sep_disp = sep_min
+            moon_verdict = moon_impact(False, sep_min, up_frac, moon.illumination)
+            moon_factor = moon_score(False, sep_min, up_frac, moon.illumination)
         else:
             maj = t.maj_arcmin
             frame = rig.framing(t.maj_arcmin, t.min_arcmin)
@@ -493,7 +568,7 @@ def plan_night(
                 kind=t.kind,
                 classification=t.classification,
                 const=t.const,
-                mag=t.mag,
+                mag=round(mag_use, 1) if mag_use is not None else None,
                 hours=round(float(hours[i]), 1),
                 cont_hours=cont_h,
                 window=win_str,
@@ -512,13 +587,14 @@ def plan_night(
                         moon_factor=moon_factor,
                         maj_arcmin=maj,
                         fov_long=rig.fov_long,
-                        mag=t.mag,
-                        # Solar System bodies are exempt: they are bright point
-                        # or disk sources, not extended deep-sky objects
-                        # competing with the sky background, so the contrast
-                        # model does not apply and must stay neutral.
+                        mag=mag_use,
+                        # Solar System bodies and comets are exempt: a planet
+                        # is a bright disk, and a comet's surface brightness is
+                        # unknown and highly variable (outgassing), with no
+                        # reliable size -- applying the sky-contrast model to
+                        # either would be false precision, so it stays neutral.
                         contrast=1.0
-                        if t.body is not None
+                        if (t.body is not None or t.elements is not None)
                         else contrast_score(
                             t.mag,
                             t.maj_arcmin,

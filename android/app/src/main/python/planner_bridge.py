@@ -19,7 +19,13 @@ def run_plan(request_json: str) -> str:
     hrz_path (path or ""), focal_mm, sensor ('WxH' or preset), deep (bool),
     mag_limit, top, sharpless (bool, default true), sharpless_min_diam
     (arcmin, default 10), solar_system (bool, default true), ss_moons (bool,
-    default false — needs the JPL ephemeris, online).
+    default false — needs the JPL ephemeris, online), comets (bool, default
+    false — fetches MPC elements, online), comet_mag_limit (float or null).
+
+    Comets are the only ONLINE part of a plan. If they are requested but the
+    fetch fails (offline, MPC unreachable), the plan proceeds WITHOUT them and
+    the response carries a ``comet_warning``, rather than failing the whole
+    plan — the rest of the sky is offline and must still be planned.
     """
     t0 = time.perf_counter()
     try:
@@ -77,6 +83,20 @@ def run_plan(request_json: str) -> str:
                 from harp.solar_system import load_moon_ephemeris
 
                 load_moon_ephemeris()
+
+            # Comets: the only online part. Fetch is best-effort — a failure
+            # degrades to a comet-less plan plus a warning, never a dead plan.
+            comet_elements = None
+            comet_warning = ""
+            if bool(req.get("comets") or False):
+                try:
+                    from harp.api import fetch_comet_elements
+
+                    comet_elements = fetch_comet_elements()
+                except Exception as ce:  # offline / MPC unreachable
+                    comet_warning = f"comets unavailable: {type(ce).__name__}: {ce}"
+
+            comet_mag_limit = req.get("comet_mag_limit")
             targets = build_targets(
                 pyongc_catalogs=catalogs,
                 mag_limit=float(req.get("mag_limit") or 11.0),
@@ -84,6 +104,7 @@ def run_plan(request_json: str) -> str:
                 sharpless_min_diam=float(req.get("sharpless_min_diam") or 10.0),
                 use_solar_system=use_solar_system,
                 ss_moons=ss_moons,
+                comet_elements=comet_elements,
             )
             plan = plan_night(
                 site=site,
@@ -95,6 +116,7 @@ def run_plan(request_json: str) -> str:
                 min_moon_sep=float(req.get("moon_sep") or 30.0),
                 min_hours=float(req.get("min_hours") or 1.0),
                 min_peak_alt=float(req.get("min_peak_alt") or 20.0),
+                comet_mag_limit=(float(comet_mag_limit) if comet_mag_limit is not None else None),
                 sort=str(req.get("sort") or "score"),
                 horizon_label=horizon_label,
             )
@@ -112,6 +134,8 @@ def run_plan(request_json: str) -> str:
         out["elapsed_s"] = round(time.perf_counter() - t0, 1)
         out["n_targets"] = len(targets)
         out["display_top"] = int(req.get("top") or 30)
+        if comet_warning:
+            out["comet_warning"] = comet_warning
         return json.dumps(out)
     except Exception as e:  # surfaced in the UI, never a crash
         return json.dumps({"error": f"{type(e).__name__}: {e}"})

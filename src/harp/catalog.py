@@ -110,6 +110,13 @@ class Target:
     body : str or None
         ``get_body`` name (``'mars'``, ``'moon'``, ...) for a Solar System
         target; ``None`` for a fixed deep-sky object.
+    elements : harp.comets.CometElements or None
+        Osculating orbital elements for a comet, whose position is propagated
+        live from them. Mutually exclusive with a fixed ``coord`` and with a
+        ``body`` name: a comet is a moving target placed by Kepler propagation,
+        not by ``get_body``. ``None`` for every non-comet target. Typed
+        ``object`` to avoid a circular import (``harp.comets`` imports
+        ``Target``); the concrete type is ``harp.comets.CometElements``.
     """
 
     name: str
@@ -123,15 +130,16 @@ class Target:
     idents: frozenset[str] = field(default_factory=frozenset)
     classification: str = ""
     body: str | None = None
+    elements: object | None = None
 
     def __post_init__(self) -> None:
         # Deep-sky targets derive their class from the raw kind; Solar System
-        # targets pass an explicit classification. A moving body carries no
-        # fixed coord (position is computed live from `body`); a fixed object
-        # must have one.
+        # and comet targets pass an explicit classification. A moving target
+        # carries no fixed coord -- a Solar System body is placed live from
+        # `body`, a comet from `elements`; a fixed object must have a coord.
         if not self.classification:
             object.__setattr__(self, "classification", kind_class(self.kind))
-        if self.body is None and self.coord is None:
+        if self.body is None and self.elements is None and self.coord is None:
             raise CatalogError(f"fixed target {self.name!r} has no coordinates")
 
 
@@ -448,7 +456,7 @@ def user_targets(path: str | Path) -> list[Target]:
 
 
 _CLASS_TOKENS = frozenset(
-    {"nebula", "galaxy", "cluster", "planetary", "star", "planet", "moon", "sun", "other"}
+    {"nebula", "galaxy", "cluster", "planetary", "star", "planet", "moon", "sun", "comet", "other"}
 )
 FILTER_TOKENS = _CLASS_TOKENS | {"emission", "non-emission"}
 
@@ -457,8 +465,8 @@ def kind_class(kind: str) -> str:
     """Collapse a raw catalog kind into the filter taxonomy.
 
     One of ``nebula``, ``galaxy``, ``cluster``, ``planetary``, ``star``,
-    ``planet``, ``moon``, ``sun``, ``other``. Emission-ness is NOT a class:
-    it is the orthogonal ``narrowband`` flag.
+    ``planet``, ``moon``, ``sun``, ``comet``, ``other``. Emission-ness is NOT
+    a class: it is the orthogonal ``narrowband`` flag.
 
     Note the deliberate ``planetary`` (planetary *nebula*) vs ``planet``
     (a Solar System planet) split: the ``planetary`` test runs first, so a
@@ -483,6 +491,8 @@ def kind_class(kind: str) -> str:
         return "planet"
     if "sun" in k:
         return "sun"
+    if "comet" in k:
+        return "comet"
     if "star" in k:
         return "star"
     return "other"
@@ -546,6 +556,7 @@ def build_targets(
     use_sharpless: bool = True,
     use_solar_system: bool = True,
     ss_moons: bool = False,
+    comet_elements: list | None = None,
     pyongc_catalogs: list[str] | None = None,
     mag_limit: float = 11.0,
     sharpless_min_diam: float = 10.0,
@@ -578,6 +589,11 @@ def build_targets(
         Also include the major natural satellites. Requires the JPL satellite
         ephemeris (online); the caller must have loaded it via
         :func:`harp.solar_system.load_moon_ephemeris` first.
+    comet_elements : list of harp.comets.CometElements or None
+        Pre-fetched comet orbital elements to add as moving targets. Fetching
+        is online and is the caller's responsibility (via
+        :func:`harp.comets.fetch_comet_elements`), mirroring the satellite
+        ephemeris opt-in; ``None`` adds no comets (the offline default).
     pyongc_catalogs : list of str or None
         pyongc catalog names among ``M``/``NGC``/``IC``; defaults to ``['M']``.
     mag_limit : float
@@ -613,6 +629,13 @@ def build_targets(
         from harp.solar_system import solar_system_targets
 
         result += solar_system_targets(include_moons=ss_moons)
+    # Comets carry orbital elements and no fixed coord, so like Solar System
+    # bodies they never collide with a deep-sky object and are appended after
+    # dedup.
+    if comet_elements:
+        from harp.comets import comet_targets
+
+        result += comet_targets(comet_elements)
     return result
 
 

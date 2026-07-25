@@ -42,9 +42,11 @@ does.
 | `--sharpless-min-diam` | Drop Sh2 regions smaller than this, arcmin (default 10). |
 | `--solar-system` / `--no-solar-system` | Include the Moon and planets. On by default. |
 | `--ss-moons` | Add the major moons — needs the JPL ephemeris, so this one is **online**. |
+| `--comets` | Add currently observable comets from MPC orbital elements — fetched at run time, so this one is **online**. |
+| `--comet-mag-limit` | Drop comets predicted fainter than this apparent magnitude tonight (e.g. `12`). |
 | `--moon-sep` | Minimum Moon separation to keep a target, degrees. |
 | `--min-hours` | Minimum usable hours to keep a target. |
-| `--filter` | Class tokens OR-ed (`nebula`, `galaxy`, `cluster`, `planetary`, `star`, `planet`, `moon`, `sun`, `other`), with `emission`/`non-emission` AND-ed on top. |
+| `--filter` | Class tokens OR-ed (`nebula`, `galaxy`, `cluster`, `planetary`, `star`, `planet`, `moon`, `sun`, `comet`, `other`), with `emission`/`non-emission` AND-ed on top. |
 | `--sort` | `score` (default), `hours`, `alt`, or `name`. |
 | `--top` | How many rows to show on screen. |
 | `--csv`, `--png`, `--nina` | Write the table, the chart, and the N.I.N.A. import. |
@@ -53,10 +55,12 @@ does.
 | `--link-site` | Provider for the `link` column: `simbad` (default), `wikipedia`, `astrobin`, `aladin`. |
 | `--save-site`, `--default`, `--keep-hrz` | Save the inline site into the config (see below). |
 
-::: tip Everything is offline except one flag
-`--ss-moons` is the sole exception: it downloads a JPL ephemeris. Every other
-option — catalogues, Sharpless, Solar System planets, ephemerides — works with
-no network at all.
+::: tip Everything is offline except two flags
+`--ss-moons` (downloads a JPL ephemeris) and `--comets` (fetches MPC orbital
+elements) are the only networked options. Every other option — catalogues,
+Sharpless, Solar System planets, ephemerides — works with no network at all,
+and even those two degrade cleanly: offline they fail with a clear message
+instead of poisoning the plan.
 :::
 
 ## Saved sites (multiple observatories)
@@ -155,10 +159,39 @@ ephemeris and are off by default:
 harp plan --ss-moons                   # + major moons (online, downloads a kernel)
 ```
 
-`--ss-moons` fetches a JPL satellite ephemeris at run time — the only part of
-HARP that touches the network — and is intended for completeness, not
-imaging: on a deep-sky rig these moons are unresolvable points inside the
-parent planet's glare.
+`--ss-moons` fetches a JPL satellite ephemeris at run time — one of only two
+parts of HARP that touch the network (the other is `--comets`, below) — and is
+intended for completeness, not imaging: on a deep-sky rig these moons are
+unresolvable points inside the parent planet's glare.
+
+## Comets
+
+Comets are the one target class HARP cannot resolve offline. Their position
+comes from *orbital elements* the Minor Planet Center publishes and refits as
+new observations arrive, so they are an explicit **online** opt-in:
+
+```bash
+harp plan --comets                     # + currently observable comets (online)
+harp plan --comets --comet-mag-limit 12  # hide comets fainter than mag 12 tonight
+harp plan --comets --filter comet      # comets only
+```
+
+`--comets` fetches the MPC's current-comets file and propagates each comet with
+a **two-body Kepler** model to place it in your sky. That is accurate to
+arcminutes over the elements' weeks-long validity window — enough to answer
+"does this comet clear my horizon, and is it worth chasing?" It is **not**
+pointing-grade: slew from N.I.N.A./ASTAP's own ephemeris at the mount.
+
+A comet is ranked like a faint broadband object — it **is** hurt by moonlight
+(unlike the bright planets), so it gets a real Moon-separation and impact
+verdict. Its magnitude in the table is the **apparent** magnitude predicted for
+tonight from the standard comet law (`m = H + 5·log₁₀Δ + K·log₁₀r`), not the
+raw absolute `H` — so a close, active comet correctly outranks a distant faint
+one. `--comet-mag-limit` prunes on that predicted magnitude; comets whose
+brightness cannot be predicted (no `H` on file) are always kept.
+
+Offline, `--comets` fails with a clear message and no comets — the rest of the
+plan is unaffected.
 
 ## Your own targets
 
@@ -241,9 +274,9 @@ headers — N.I.N.A. has a known importer bug that reads a bare
 `Right Ascension` column for the declination too, which these files
 therefore never contain.
 
-Solar System bodies have no fixed J2000 coordinate, so they are exported as
-a **dusk snapshot**: the position at that night's dusk, with the familiar
-name marked `<body> (<date> dusk)` to flag it as a single-instant
+Solar System bodies and comets have no fixed J2000 coordinate, so they are
+exported as a **dusk snapshot**: the position at that night's dusk, with the
+familiar name marked `<body> (<date> dusk)` to flag it as a single-instant
 placeholder. N.I.N.A. re-slews to the live position from its own ephemeris —
 the snapshot only keeps the body present in the imported list.
 
@@ -653,7 +686,7 @@ What the surface offers, by area:
 | Links | `target_link` |
 
 ::: info API stability
-Breaking changes to `harp.api` bump `API_VERSION` (currently **6**) and the
+Breaking changes to `harp.api` bump `API_VERSION` (currently **7**) and the
 package minor version. The Android app is built on this same surface, which is
 what keeps it from drifting away from the CLI.
 :::

@@ -42,8 +42,9 @@ astronomical core are all on the phone. No account, no network, no telemetry.
   [Polar alignment](/guide/usage#polar-alignment) for the workflow and its
   honest accuracy limits.
 - **Settings** — rig (focal length, sensor), planning thresholds, catalogue
-  selection, Sharpless options, refraction pressure/temperature, link
-  provider, and appearance.
+  selection, Sharpless options, a comets toggle (online — fetches MPC orbital
+  elements, with an apparent-magnitude limit), refraction pressure/temperature,
+  link provider, and appearance.
 
 ## Saved sites and the observation log
 

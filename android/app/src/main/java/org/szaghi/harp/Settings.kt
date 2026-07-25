@@ -46,6 +46,12 @@ data class AppSettings(
     // Include the Sharpless (Sh2) H II regions and their measured sizes; on by
     // default, matching the CLI.
     val sharpless: Boolean = true,
+    // Include currently observable comets, positioned from MPC orbital elements
+    // fetched at run time. OFF by default: this is the only online part of a
+    // plan, so opting in is deliberate. cometMagLimit drops comets predicted
+    // fainter than this apparent magnitude tonight (12 hides the unimageable).
+    val comets: Boolean = false,
+    val cometMagLimit: Float = 12f,
     // Minimum Sharpless angular diameter to keep, arcmin (matches the CLI's
     // --sharpless-min-diam; drops tiny/compact H II regions).
     val sharplessMinDiam: Float = 10f,
@@ -77,6 +83,8 @@ class SettingsRepo(private val context: Context) {
         val SOLAR_SYSTEM = booleanPreferencesKey("solar_system")
         val SHARPLESS = booleanPreferencesKey("sharpless")
         val SHARPLESS_MIN_DIAM = floatPreferencesKey("sharpless_min_diam")
+        val COMETS = booleanPreferencesKey("comets")
+        val COMET_MAG_LIMIT = floatPreferencesKey("comet_mag_limit")
         val PRESSURE_HPA = floatPreferencesKey("pressure_hpa")
         val TEMP_C = floatPreferencesKey("temp_c")
     }
@@ -101,6 +109,8 @@ class SettingsRepo(private val context: Context) {
             solarSystem = p[SOLAR_SYSTEM] ?: true,
             sharpless = p[SHARPLESS] ?: true,
             sharplessMinDiam = p[SHARPLESS_MIN_DIAM] ?: 10f,
+            comets = p[COMETS] ?: false,
+            cometMagLimit = p[COMET_MAG_LIMIT] ?: 12f,
             pressureHpa = p[PRESSURE_HPA] ?: 1010f,
             tempC = p[TEMP_C] ?: 10f,
         )

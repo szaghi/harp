@@ -37,6 +37,9 @@ class PlanViewModel(app: Application) : AndroidViewModel(app) {
     var running by mutableStateOf(false); private set
     var summary by mutableStateOf(""); private set
     var error by mutableStateOf(""); private set
+    // Non-fatal notice when comets were requested but the online fetch failed;
+    // the plan still succeeded offline without them.
+    var cometWarning by mutableStateOf(""); private set
     // Full ranked list from the bridge; the screen filters these and then
     // caps the DISPLAYED count to [displayTop] — so a class filter sees every
     // ranked target, not just a pre-truncated top-N (which on a moonlit night
@@ -71,6 +74,7 @@ class PlanViewModel(app: Application) : AndroidViewModel(app) {
     fun runPlan() {
         running = true
         error = ""
+        cometWarning = ""
         rows.clear()
         viewModelScope.launch {
             val s = settingsRepo.flow.first()
@@ -134,6 +138,10 @@ class PlanViewModel(app: Application) : AndroidViewModel(app) {
                     put("solar_system", s.solarSystem)
                     put("sharpless", s.sharpless)
                     put("sharpless_min_diam", s.sharplessMinDiam.toDouble())
+                    // Comets are the only online part; the bridge degrades to a
+                    // comet-less plan + warning if the fetch fails offline.
+                    put("comets", s.comets)
+                    if (s.comets) put("comet_mag_limit", s.cometMagLimit.toDouble())
                 }
                 try {
                     PyBridge.py.getModule("planner_bridge")
@@ -148,6 +156,7 @@ class PlanViewModel(app: Application) : AndroidViewModel(app) {
                 summary = ""
             } else {
                 displayTop = parsed.optInt("display_top", 30)
+                cometWarning = parsed.optString("comet_warning", "")
                 val night = parsed.getJSONObject("night")
                 val moon = parsed.getJSONObject("moon")
                 val hhmm = { iso: String -> iso.substringAfter('T').take(5) }

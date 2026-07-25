@@ -186,6 +186,20 @@ def plan(
         help="Also include major natural satellites (Titan, Galilean moons). "
         "Requires a JPL satellite ephemeris downloaded at run time (online).",
     ),
+    comets: bool = typer.Option(
+        False,
+        "--comets",
+        help="Also rank currently observable comets, positioned from MPC "
+        "orbital elements fetched at run time (ONLINE; the only networked "
+        "command). Offline this fails cleanly; omit it for an offline plan.",
+    ),
+    comet_mag_limit: float | None = typer.Option(
+        None,
+        "--comet-mag-limit",
+        help="Drop comets predicted fainter than this apparent magnitude "
+        "tonight (e.g. 12 hides the unimageable ones). Comets with an unknown "
+        "brightness are kept. No effect without --comets.",
+    ),
     csv: str | None = typer.Option(None, help="Output CSV file."),
     png: str | None = typer.Option(None, help="Output PNG chart file."),
     nina: str | None = typer.Option(
@@ -263,11 +277,17 @@ def plan(
             from harp.solar_system import load_moon_ephemeris
 
             load_moon_ephemeris()
+        comet_els = None
+        if comets:
+            from harp.comets import fetch_comet_elements
+
+            comet_els = fetch_comet_elements()
         target_list = build_targets(
             use_pyongc=not no_pyongc,
             use_sharpless=sharpless,
             use_solar_system=solar_system,
             ss_moons=ss_moons,
+            comet_elements=comet_els,
             pyongc_catalogs=_catalog_list(cfg, catalogs),
             mag_limit=pick(mag_limit, "mag_limit", cfg, DEFAULTS.mag_limit),
             sharpless_min_diam=pick(sharpless_min_diam, "sharpless_min_diam", cfg, 10.0),
@@ -288,6 +308,7 @@ def plan(
             min_moon_sep=pick(moon_sep, "moon_sep", cfg, DEFAULTS.min_moon_sep),
             min_hours=pick(min_hours, "min_hours", cfg, DEFAULTS.min_hours),
             min_peak_alt=DEFAULTS.min_peak_alt,
+            comet_mag_limit=pick(comet_mag_limit, "comet_mag_limit", cfg, None),
             horizon_label=horizon_label,
             sort=sort,
         )

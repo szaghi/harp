@@ -20,6 +20,8 @@ from harp.errors import EphemerisError
 __all__ = [
     "MoonState",
     "NightWindow",
+    "comet_altaz",
+    "comet_apparent_mag",
     "compute_night",
     "fmt_hm",
     "moon_state",
@@ -27,6 +29,12 @@ __all__ = [
     "solar_apparent_arcmin",
     "target_altaz",
 ]
+
+# Obliquity of the J2000 ecliptic, radians. The comet elements are referred to
+# the ecliptic; the Sun position from get_body is equatorial (GCRS). Rotating
+# the comet's heliocentric vector about x by this angle puts both in the same
+# equatorial frame before they are summed.
+_OBLIQUITY_J2000 = np.radians(23.43929111)
 
 
 def fmt_hm(t: Time, tz: ZoneInfo) -> str:
@@ -188,6 +196,116 @@ def solar_apparent_arcmin(
     return float(np.median(diam_deg) * 60.0)
 
 
+def comet_altaz(
+    location: EarthLocation, window: NightWindow, elements: list
+) -> tuple[np.ndarray, np.ndarray]:
+    """Altitude/azimuth of comets on the night grid, from orbital elements.
+
+    A comet has no fixed coord and is not resolvable by ``get_body``; its
+    position is propagated from :class:`~harp.comets.CometElements` at each
+    grid sample. The two-body heliocentric position (J2000 ecliptic) is rotated
+    into equatorial coordinates and added to the Sun's geocentric position to
+    give a geocentric vector, which is transformed to alt-az like any body.
+
+    Parameters
+    ----------
+    location : astropy.coordinates.EarthLocation
+        Observing site.
+    window : NightWindow
+        The night grid.
+    elements : list of harp.comets.CometElements
+        One element set per comet.
+
+    Returns
+    -------
+    (numpy.ndarray, numpy.ndarray)
+        ``alt`` and ``az`` in degrees, shape ``(len(elements), n_times)``.
+        Empty ``(0, n_times)`` arrays when ``elements`` is empty.
+
+    Notes
+    -----
+    The Sun's *geocentric* position is the negative of Earth's heliocentric
+    position; adding it to the comet's *heliocentric* vector yields the comet's
+    geocentric vector -- the geometry that makes a comet near the Sun rise and
+    set with it. Light-time is not iterated: at arcminute planning resolution
+    the sub-light-time shift is immaterial (a comet 1 au away moves << 1' in the
+    ~8 min light-time), and iterating it would be false precision on a two-body
+    element set.
+    """
+    n_t = len(window.times)
+    if not elements:
+        return np.empty((0, n_t)), np.empty((0, n_t))
+    frame = AltAz(obstime=window.times, location=location)
+    # Sun geocentric position (equatorial cartesian, au), shared by all comets.
+    sun = get_body("sun", window.times, location)
+    sun_xyz = sun.cartesian.xyz.to_value(u.au)  # shape (3, n_t)
+    jd = window.times.tt.jd
+    cos_e, sin_e = np.cos(_OBLIQUITY_J2000), np.sin(_OBLIQUITY_J2000)
+    alt = np.empty((len(elements), n_t))
+    az = np.empty((len(elements), n_t))
+    for i, el in enumerate(elements):
+        # Heliocentric ecliptic position per grid time.
+        helio = np.array([el.state_au(float(t)) for t in jd])  # (n_t, 3)
+        xe, ye, ze = helio[:, 0], helio[:, 1], helio[:, 2]
+        # Ecliptic -> equatorial: rotate about the x-axis by the obliquity.
+        x_eq = xe
+        y_eq = ye * cos_e - ze * sin_e
+        z_eq = ye * sin_e + ze * cos_e
+        # Geocentric comet = heliocentric comet + Sun-geocentric.
+        gx = x_eq + sun_xyz[0]
+        gy = y_eq + sun_xyz[1]
+        gz = z_eq + sun_xyz[2]
+        coords = SkyCoord(
+            x=gx * u.au,
+            y=gy * u.au,
+            z=gz * u.au,
+            frame="gcrs",
+            obstime=window.times,
+            representation_type="cartesian",
+        )
+        aa = coords.transform_to(frame)
+        alt[i] = aa.alt.to_value(u.deg)
+        az[i] = aa.az.to_value(u.deg)
+    return alt, az
+
+
+def comet_apparent_mag(
+    location: EarthLocation, window: NightWindow, elements: object
+) -> float | None:
+    """Median predicted apparent magnitude of a comet over the night.
+
+    Uses the heliocentric distance ``r`` (from the two-body state) and the
+    geocentric distance ``delta`` (comet vector minus nothing -- the geocentric
+    vector's length) at each grid sample, fed through the standard comet
+    magnitude law. The median over the night is a single stable value for
+    ranking and reporting, matching :func:`solar_apparent_arcmin`'s treatment
+    of the apparent disk.
+
+    Returns ``None`` when the comet has no absolute magnitude ``H`` (brightness
+    unpredictable), so the caller can fall back to a neutral prominence.
+    """
+    if getattr(elements, "h_mag", None) is None:
+        return None
+    sun = get_body("sun", window.times, location)
+    sun_xyz = sun.cartesian.xyz.to_value(u.au)  # (3, n_t)
+    jd = window.times.tt.jd
+    cos_e, sin_e = np.cos(_OBLIQUITY_J2000), np.sin(_OBLIQUITY_J2000)
+    mags = []
+    for k, t in enumerate(jd):
+        x, y, z = elements.state_au(float(t))
+        r = float(np.sqrt(x * x + y * y + z * z))  # heliocentric distance
+        y_eq = y * cos_e - z * sin_e
+        z_eq = y * sin_e + z * cos_e
+        gx = x + sun_xyz[0, k]
+        gy = y_eq + sun_xyz[1, k]
+        gz = z_eq + sun_xyz[2, k]
+        delta = float(np.sqrt(gx * gx + gy * gy + gz * gz))  # geocentric distance
+        m = elements.apparent_mag(r, delta)
+        if m is not None:
+            mags.append(m)
+    return float(np.median(mags)) if mags else None
+
+
 @dataclass(frozen=True)
 class MoonState:
     """Moon ephemerides over the night grid.
@@ -196,6 +314,10 @@ class MoonState:
     ----------
     alt : numpy.ndarray
         Moon altitude in degrees per grid sample.
+    az : numpy.ndarray
+        Moon azimuth in degrees per grid sample. Lets a caller compute the
+        Moon separation of a *moving* target (a comet) directly from alt-az,
+        without a fixed ``SkyCoord``.
     sep : numpy.ndarray
         Moon separation in degrees, shape ``(n_targets, n_times)``.
     illumination : float
@@ -205,6 +327,7 @@ class MoonState:
     """
 
     alt: np.ndarray
+    az: np.ndarray
     sep: np.ndarray
     illumination: float
     up_str: str
@@ -223,7 +346,9 @@ def moon_state(
 ) -> MoonState:
     """Compute Moon altitude, per-target separation, and illumination."""
     moon = get_body("moon", window.times, location)
-    alt = moon.transform_to(AltAz(obstime=window.times, location=location)).alt.to_value(u.deg)
+    moon_aa = moon.transform_to(AltAz(obstime=window.times, location=location))
+    alt = moon_aa.alt.to_value(u.deg)
+    az = moon_aa.az.to_value(u.deg)
     sep = np.array([moon.separation(c).to_value(u.deg) for c in coords])
     illumination = float(observer.moon_illumination(window.dusk))
 
@@ -236,4 +361,4 @@ def moon_state(
         )
     else:
         up_str = "below horizon all night"
-    return MoonState(alt=alt, sep=sep, illumination=illumination, up_str=up_str)
+    return MoonState(alt=alt, az=az, sep=sep, illumination=illumination, up_str=up_str)

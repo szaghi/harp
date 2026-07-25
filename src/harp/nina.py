@@ -56,6 +56,40 @@ def _solar_dusk_coord(plan: NightPlan, body: str) -> SkyCoord:
     return get_body(body, plan.window.dusk, plan.site.location).icrs
 
 
+def _comet_dusk_coord(plan: NightPlan, elements: object) -> SkyCoord:
+    """ICRS position of a comet at the plan's dusk, from orbital elements.
+
+    Same intent as :func:`_solar_dusk_coord` but for a comet, which
+    ``get_body`` cannot place: the position is propagated from the two-body
+    elements and, like the Solar System snapshot, is a single-instant
+    placeholder that N.I.N.A. should re-derive from a fresh ephemeris.
+    """
+    import astropy.units as u
+    import numpy as np
+    from astropy.coordinates import SkyCoord as _SkyCoord
+    from astropy.coordinates import get_body
+
+    from harp.ephemeris import _OBLIQUITY_J2000
+
+    t = plan.window.dusk
+    x, y, z = elements.state_au(float(t.tt.jd))  # heliocentric ecliptic, au
+    cos_e, sin_e = np.cos(_OBLIQUITY_J2000), np.sin(_OBLIQUITY_J2000)
+    # Ecliptic -> equatorial, then add the Sun's geocentric position.
+    x_eq = x
+    y_eq = y * cos_e - z * sin_e
+    z_eq = y * sin_e + z * cos_e
+    sun = get_body("sun", t, plan.site.location).cartesian.xyz.to_value(u.au)
+    geo = _SkyCoord(
+        x=(x_eq + sun[0]) * u.au,
+        y=(y_eq + sun[1]) * u.au,
+        z=(z_eq + sun[2]) * u.au,
+        frame="gcrs",
+        obstime=t,
+        representation_type="cartesian",
+    )
+    return geo.icrs
+
+
 def write_targets_csv(plan: NightPlan, path: str | Path, top: int | None = None) -> int:
     """Write the ranked plan as a N.I.N.A.-importable observing-list CSV.
 
@@ -91,11 +125,15 @@ def write_targets_csv(plan: NightPlan, path: str | Path, top: int | None = None)
         for r in rows:
             t = plan.targets[r.index]
             if t.coord is None:
-                # Solar System body: no fixed J2000 coordinate. Export a
-                # dusk snapshot, transformed to ICRS, with the name marked so
-                # it is clear the position is a single-instant placeholder
-                # (N.I.N.A. should re-slew from its own ephemeris).
-                coord = _solar_dusk_coord(plan, t.body)
+                # Moving body (Solar System object or comet): no fixed J2000
+                # coordinate. Export a dusk snapshot, transformed to ICRS, with
+                # the name marked so it is clear the position is a single-instant
+                # placeholder (N.I.N.A. should re-slew from its own ephemeris).
+                coord = (
+                    _comet_dusk_coord(plan, t.elements)
+                    if t.elements is not None
+                    else _solar_dusk_coord(plan, t.body)
+                )
                 name = f"{t.name} ({plan.window.day.isoformat()} dusk)"
                 w.writerow([t.name, name, _hms(coord), _dms(coord), ""])
             else:
