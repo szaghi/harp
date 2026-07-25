@@ -103,6 +103,10 @@ class ScheduleViewModel(app: Application) : AndroidViewModel(app) {
                         put("elev", site.elev)
                         put("tz", site.tz)
                         put("label", site.label)
+                        // Sky quality, so `when` ranks with the same contrast
+                        // term the Plan tab and CLI use.
+                        site.bortle?.let { put("bortle", it) }
+                        site.sqm?.let { put("sqm", it) }
                         val hrz = sitesRepo.hrzPathFor(site.name)
                         if (hrz.isNotBlank()) put("hrz_path", hrz)
                     }

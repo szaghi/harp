@@ -183,6 +183,15 @@ other.
   (offline). The `planner_bridge` request accepts `sharpless` (bool) and
   `sharpless_min_diam` (arcmin); the Plan tab drives them from a Settings
   toggle, matching the CLI's `--sharpless` / `--sharpless-min-diam`.
+- **Core capability — per-site sky quality**: a saved site carries an optional
+  Bortle class or measured SQM, set in the Horizon wizard's save dialog and
+  persisted to `sites.yaml` (the same `bortle` / `sqm` keys the CLI reads).
+  This closes a parity gap: the light-pollution contrast model shipped in the
+  core, but the app had no way to set it, so `SiteEntry` and the site/plan/when
+  bridges dropped it silently. Now `SiteEntry` carries both fields, `site_to_dict`
+  surfaces them, `sites_bridge.save_site` accepts them (a present-null clears),
+  and `planner_bridge` / `schedule_bridge` feed them into `Site`, so the app's
+  plan and **when** ranking use the same contrast term as `harp plan`.
 
 ## Building — two paths
 

@@ -52,6 +52,10 @@ def run_plan(request_json: str) -> str:
                 lon=float(req["lon"]),
                 elev=float(req.get("elev") or 0.0),
                 tz=req["tz"],
+                # Sky quality of the selected site, so the plan's contrast term
+                # matches the CLI. Absent (null) leaves the term neutral.
+                bortle=(int(req["bortle"]) if req.get("bortle") is not None else None),
+                sqm=(float(req["sqm"]) if req.get("sqm") is not None else None),
             )
             sensor_name, sw, sh = parse_sensor(str(req.get("sensor") or "23.5x15.7"))
             rig = Rig(

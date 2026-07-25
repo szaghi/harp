@@ -134,6 +134,8 @@ def site_to_dict(
         "hrz": site.hrz,
         "has_hrz": has_hrz,
         "default": is_default,
+        "bortle": site.bortle,
+        "sqm": site.sqm,
     }
 
 

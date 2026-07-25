@@ -92,11 +92,17 @@ class PlanViewModel(app: Application) : AndroidViewModel(app) {
             val elev: Double
             val tz: String
             val hrzPath: String
+            // Sky quality of the selected site (null for the GPS-fallback case,
+            // which has no saved site and therefore no declared sky).
+            var bortle: Int? = null
+            var sqm: Double? = null
             if (chosen != null) {
                 lat = chosen.lat
                 lon = chosen.lon
                 elev = chosen.elev
                 tz = chosen.tz
+                bortle = chosen.bortle
+                sqm = chosen.sqm
                 hrzPath = withContext(Dispatchers.IO) { sitesRepo.hrzPathFor(chosen.name) }
                 summary = "planning ${chosen.label} (${s.catalogs})..."
             } else {
@@ -121,6 +127,9 @@ class PlanViewModel(app: Application) : AndroidViewModel(app) {
                     put("lon", lon)
                     put("elev", elev)
                     put("tz", tz)
+                    // Sky quality, so the app's contrast term matches the CLI.
+                    bortle?.let { put("bortle", it) }
+                    sqm?.let { put("sqm", it) }
                     put("date", date.trim())
                     put("hrz_path", hrzPath)
                     put("focal_mm", s.focal.toDouble())

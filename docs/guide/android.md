@@ -51,7 +51,12 @@ astronomical core are all on the phone. No account, no network, no telemetry.
 Sites live in the app's private storage in exactly the CLI's layout —
 `sites.yaml` plus one `.hrz` per site — so the whole directory can be copied
 to a desktop `~/.config/harp/` and used with `harp --site`. Capturing a
-horizon in the wizard saves it straight into the selected site.
+horizon in the wizard saves it straight into the selected site, together with
+the site's optional **sky quality** — a Bortle class (1–9) or a measured SQM
+(mag/arcsec²), the same `bortle` / `sqm` keys the CLI reads. Declaring it turns
+on the [light-pollution contrast term](/guide/usage#light-pollution-and-target-contrast)
+in the app's plan exactly as it does for `harp plan`; SQM wins over Bortle when
+both are given, and declaring neither leaves the ranking untouched.
 
 The observation log sits beside them as `observations.yaml`, in the same
 format `harp log` uses: log a session on the phone at the telescope, copy the

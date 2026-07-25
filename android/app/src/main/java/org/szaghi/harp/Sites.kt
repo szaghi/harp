@@ -25,6 +25,11 @@ data class SiteUi(
     val tz: String,
     val hasHrz: Boolean,
     val isDefault: Boolean,
+    // Sky quality: Bortle class (1-9) and/or measured SQM (mag/arcsec^2). Null
+    // when the site declares neither, which leaves the plan's contrast term
+    // neutral — exactly as the CLI behaves.
+    val bortle: Int? = null,
+    val sqm: Double? = null,
 )
 
 /**
@@ -65,6 +70,9 @@ class SitesRepo(private val app: Application) {
                         tz = s.optString("tz", "UTC"),
                         hasHrz = s.optBoolean("has_hrz", false),
                         isDefault = s.optBoolean("default", false),
+                        // JSON null (or absent) -> Kotlin null: site has no sky.
+                        bortle = if (s.isNull("bortle")) null else s.optInt("bortle"),
+                        sqm = if (s.isNull("sqm")) null else s.optDouble("sqm"),
                     )
                 )
             }
@@ -82,6 +90,8 @@ class SitesRepo(private val app: Application) {
         tz: String,
         hrz: String?,
         makeDefault: Boolean,
+        bortle: Int? = null,
+        sqm: Double? = null,
     ): String {
         val req = JSONObject().apply {
             put("config_dir", configDir)
@@ -93,6 +103,10 @@ class SitesRepo(private val app: Application) {
             put("tz", tz)
             if (hrz != null) put("hrz", hrz)
             put("make_default", makeDefault)
+            // Always send the sky keys so the bridge treats them as explicit:
+            // a value sets it, JSONObject.NULL clears it (present-key-clears).
+            put("bortle", bortle ?: JSONObject.NULL)
+            put("sqm", sqm ?: JSONObject.NULL)
         }
         val res = JSONObject(bridge().callAttr("save_site", req.toString()).toString())
         return if (res.has("error")) res.getString("error") else ""
@@ -149,12 +163,14 @@ class SitesViewModel(app: Application) : AndroidViewModel(app) {
         tz: String,
         hrzContent: String,
         makeDefault: Boolean,
+        bortle: Int? = null,
+        sqm: Double? = null,
         onDone: (ok: Boolean) -> Unit = {},
     ) {
         busy = true
         viewModelScope.launch {
             val err = withContext(Dispatchers.IO) {
-                repo.save(name, name, lat, lon, elev, tz, hrzContent, makeDefault)
+                repo.save(name, name, lat, lon, elev, tz, hrzContent, makeDefault, bortle, sqm)
             }
             status = if (err.isEmpty()) "saved site '$name'" else "save failed: $err"
             refresh()

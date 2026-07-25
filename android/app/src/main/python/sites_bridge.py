@@ -56,8 +56,10 @@ def save_site(request_json: str) -> str:
     """Add or update a site; optionally write its horizon. Returns JSON.
 
     Request keys: config_dir (required), name (required), label, lat, lon,
-    elev, tz, hrz (raw .hrz text to store), make_default (bool). When the site
-    already exists, omitted geo fields keep their stored values.
+    elev, tz, hrz (raw .hrz text to store), bortle (int 1-9 or null), sqm
+    (float mag/arcsec^2 or null), make_default (bool). When the site already
+    exists, omitted geo/sky fields keep their stored values; a key present with
+    a null value clears it (so the user can un-set a Bortle class).
 
     Returns
     -------
@@ -72,6 +74,15 @@ def save_site(request_json: str) -> str:
         store = SitesConfig.load(_config_path(req["config_dir"]), create=True)
         slug = slugify(req["name"])
 
+        # Sky quality: a KEY PRESENT overrides (null clears); an absent key on
+        # an update keeps the stored value. int(bortle)/float(sqm) tolerate the
+        # JSON numbers arriving as either.
+        def _sky(key, base_val, cast):
+            if key not in req:
+                return base_val
+            v = req[key]
+            return cast(v) if v is not None else None
+
         if slug in store.names():
             base = store.get(slug)
             entry = SiteEntry(
@@ -81,6 +92,8 @@ def save_site(request_json: str) -> str:
                 lon=float(req["lon"]) if req.get("lon") is not None else base.lon,
                 elev=float(req["elev"]) if req.get("elev") is not None else base.elev,
                 tz=str(req.get("tz") or base.tz),
+                bortle=_sky("bortle", base.bortle, int),
+                sqm=_sky("sqm", base.sqm, float),
             )
         else:
             entry = SiteEntry(
@@ -90,6 +103,8 @@ def save_site(request_json: str) -> str:
                 lon=float(req["lon"]),
                 elev=float(req.get("elev") or 0.0),
                 tz=str(req.get("tz") or "UTC"),
+                bortle=_sky("bortle", None, int),
+                sqm=_sky("sqm", None, float),
             )
 
         hrz = req.get("hrz")

@@ -45,7 +45,7 @@ __all__ = [
 
 # Fields of a site entry that are optional geo/label metadata; kept in sync
 # with SiteEntry so a round-trip through YAML/JSON is lossless.
-_SITE_FIELDS = ("label", "lat", "lon", "elev", "tz", "hrz")
+_SITE_FIELDS = ("label", "lat", "lon", "elev", "tz", "hrz", "bortle", "sqm")
 
 
 @dataclass
@@ -67,6 +67,13 @@ class SiteEntry:
     hrz : str or None
         Filename of the site's ``.hrz`` mask, relative to the config
         directory. ``None`` means "no horizon" (flat 0 deg at plan time).
+    bortle : int or None
+        Bortle dark-sky class (1-9) of the site. Feeds the sky-contrast term
+        at plan time; ``None`` (and no ``sqm``) leaves that term neutral, so a
+        site that declares no sky ranks exactly as before.
+    sqm : float or None
+        Measured zenith sky brightness, mag/arcsec^2. Wins over ``bortle`` when
+        both are present.
     """
 
     name: str
@@ -76,12 +83,17 @@ class SiteEntry:
     elev: float = 0.0
     tz: str = "UTC"
     hrz: str | None = None
+    bortle: int | None = None
+    sqm: float | None = None
 
     def to_section(self) -> dict[str, Any]:
         """Serialise to the config's per-site mapping (without the name key)."""
         out: dict[str, Any] = {f: getattr(self, f) for f in _SITE_FIELDS}
-        if out["hrz"] is None:
-            del out["hrz"]
+        # Omit optional fields when unset so existing sites.yaml files stay
+        # clean and a site with no sky quality declared serialises as before.
+        for opt in ("hrz", "bortle", "sqm"):
+            if out.get(opt) is None:
+                out.pop(opt, None)
         return out
 
     @classmethod
@@ -102,6 +114,8 @@ class SiteEntry:
                 elev=float(section.get("elev", 0.0)),
                 tz=str(section.get("tz", "UTC")),
                 hrz=(str(section["hrz"]) if section.get("hrz") else None),
+                bortle=(int(section["bortle"]) if section.get("bortle") is not None else None),
+                sqm=(float(section["sqm"]) if section.get("sqm") is not None else None),
             )
         except (KeyError, TypeError, ValueError) as e:
             raise ConfigError(f"site '{name}' has invalid or missing fields: {e}") from e

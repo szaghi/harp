@@ -41,6 +41,47 @@ def test_upsert_writes_hrz_and_sets_first_default(tmp_path: Path) -> None:
     assert store.hrz_path(saved) == tmp_path / "balcony.hrz"
 
 
+def test_bortle_sqm_round_trip(tmp_path: Path) -> None:
+    # Sky quality persists through save/load, matching what the CLI reads from
+    # a hand-written sites.yaml and what the Android app now writes.
+    store = SitesConfig.load(tmp_path / "sites.yaml", create=True)
+    store.upsert(
+        SiteEntry(name="dark", label="Dark", lat=45.0, lon=7.0, tz="Europe/Rome", bortle=3),
+        hrz_content=None,
+    )
+    store.upsert(
+        SiteEntry(name="measured", label="Measured", lat=45.0, lon=7.0, sqm=21.3),
+        hrz_content=None,
+    )
+    store.save()
+
+    reloaded = SitesConfig.load(tmp_path / "sites.yaml")
+    assert reloaded.get("dark").bortle == 3
+    assert reloaded.get("dark").sqm is None
+    assert reloaded.get("measured").sqm == 21.3
+
+
+def test_no_sky_site_omits_keys(tmp_path: Path) -> None:
+    # A site declaring no sky quality serialises without bortle/sqm keys, so
+    # existing configs and behaviour are unchanged.
+    entry = SiteEntry(name="plain", label="Plain", lat=1.0, lon=2.0)
+    section = entry.to_section()
+    assert "bortle" not in section
+    assert "sqm" not in section
+
+
+def test_bortle_from_hand_written_config(tmp_path: Path) -> None:
+    # The CLI's config path reads raw YAML; a hand-added bortle survives the
+    # SiteEntry round-trip the app and shared store use.
+    cfg = tmp_path / "sites.yaml"
+    cfg.write_text(
+        "sites:\n  balcony:\n    label: Balcony\n    lat: 41.9\n    lon: 12.5\n"
+        "    bortle: 6\ndefault_site: balcony\n"
+    )
+    store = SitesConfig.load(cfg)
+    assert store.get("balcony").bortle == 6
+
+
 def test_roundtrip_preserves_unrelated_keys(tmp_path: Path) -> None:
     cfg = tmp_path / "sites.yaml"
     cfg.write_text(

@@ -53,6 +53,10 @@ fun HorizonScreen(vm: HorizonViewModel, sitesVm: SitesViewModel) {
     var status by remember { mutableStateOf("") }
     var showSaveDialog by remember { mutableStateOf(false) }
     var siteName by remember { mutableStateOf("") }
+    // Optional sky quality for the saved site; blank = leave unset. SQM is a
+    // measured mag/arcsec^2 and overrides Bortle in the core when both are set.
+    var bortleText by remember { mutableStateOf("") }
+    var sqmText by remember { mutableStateOf("") }
     var cameraOn by remember { mutableStateOf(false) }
     var falseColor by remember { mutableStateOf(false) }
     var cameraGranted by remember { mutableStateOf(false) }
@@ -241,6 +245,32 @@ fun HorizonScreen(vm: HorizonViewModel, sitesVm: SitesViewModel) {
                         label = { Text("site name, e.g. Balcony") },
                         singleLine = true,
                     )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = bortleText,
+                        onValueChange = { bortleText = it.filter(Char::isDigit).take(1) },
+                        label = { Text("Bortle class 1-9 (optional)") },
+                        singleLine = true,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = sqmText,
+                        // digits and a single decimal point (a measured SQM like 21.3)
+                        onValueChange = { new ->
+                            val cleaned = new.filter { it.isDigit() || it == '.' }
+                            if (cleaned.count { it == '.' } <= 1) sqmText = cleaned.take(5)
+                        },
+                        label = { Text("SQM mag/arcsec² (optional)") },
+                        singleLine = true,
+                    )
+                    Text(
+                        "how dark your sky is. Bortle 1 = pristine, 9 = inner city; " +
+                            "SQM is a meter reading (~22 darkest, ~18 city) and wins " +
+                            "over Bortle when both are given. Either sets the plan's " +
+                            "light-pollution contrast term; leave blank to skip it. " +
+                            "Editable later in sites.yaml.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
                 }
             },
             confirmButton = {
@@ -258,6 +288,10 @@ fun HorizonScreen(vm: HorizonViewModel, sitesVm: SitesViewModel) {
                                 tz = java.util.TimeZone.getDefault().id,
                                 hrzContent = content,
                                 makeDefault = true,
+                                // 1-9 valid; blank/0 -> no sky quality set.
+                                bortle = bortleText.toIntOrNull()?.takeIf { it in 1..9 },
+                                // measured SQM; a plausible band, blank -> unset.
+                                sqm = sqmText.toDoubleOrNull()?.takeIf { it in 15.0..23.0 },
                             )
                             status = if (problems.isEmpty()) "saved site '${siteName.trim()}'"
                             else "saved '${siteName.trim()}' with warnings: " +
