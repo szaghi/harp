@@ -2,6 +2,11 @@
 title: Changelog
 ---
 
+## [0.3.4] — 2026-07-25
+### Added
+- **comets**: Rank observable comets from MPC elements, CLI and app
+
+
 ## [0.3.3] — 2026-07-25
 ### Added
 - **schedule**: Rank the coming nights for one target, CLI and app
