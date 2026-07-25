@@ -740,6 +740,113 @@ def sites_set_default(
     print(f"Default site is now '{name}'.")
 
 
+@app.command()
+def when(
+    target: str = typer.Argument(
+        ..., help="Target to schedule: designation (M31, IC1396) or name substring."
+    ),
+    start: str | None = typer.Option(
+        None, help="First night to consider, YYYY-MM-DD (default: today)."
+    ),
+    days: int = typer.Option(30, min=1, max=365, help="How many consecutive nights to score."),
+    top: int = typer.Option(10, help="Best nights to show (0 = all, in date order)."),
+    config: str | None = typer.Option(None, help="Sites/optics config file."),
+    site: str | None = typer.Option(None, help="Site name defined in the config."),
+    optics: str | None = typer.Option(None, help="Optical-setup name in the config."),
+    hrz: str | None = typer.Option(None, help="Horizon file .hrz (true north)."),
+    lat: float | None = typer.Option(None, help="Latitude (deg)."),
+    lon: float | None = typer.Option(None, help="Longitude (deg, East positive)."),
+    elev: float | None = typer.Option(None, help="Elevation (m)."),
+    tz: str | None = typer.Option(None, help="IANA timezone, e.g. Europe/Rome."),
+    label: str | None = typer.Option(None, help="Site label."),
+    bortle: int | None = typer.Option(None, min=1, max=9, help="Bortle class 1-9 of the sky."),
+    sqm: float | None = typer.Option(None, help="Measured sky brightness (mag/arcsec^2)."),
+    focal: float | None = typer.Option(None, help="Focal length (mm)."),
+    sensor: str | None = typer.Option(None, help="A sensor preset or 'WxH' in mm."),
+    catalogs: str | None = typer.Option(None, help="pyongc catalogs to search (default: M)."),
+    targets: str | None = typer.Option(None, help="User-defined targets file to search too."),
+    grid_min: int = typer.Option(10, help="Sampling step (min). Coarser than plan's 5 on purpose."),
+    json_out: bool = typer.Option(False, "--json", help="Emit the schedule as JSON."),
+) -> None:
+    """Rank the coming nights for TARGET — when to shoot it, not what to shoot.
+
+    The inverse of ``harp plan``: instead of asking which target suits tonight,
+    it asks which night suits one target. Same desirability score, so 'best'
+    means the same thing in both commands.
+    """
+    from harp.catalog import build_targets
+    from harp.horizon import Horizon
+    from harp.planner import Site
+    from harp.schedule import best_nights, score_nights
+
+    try:
+        cfg_path = find_config(config)
+        cfg = load_config(cfg_path) if cfg_path else {}
+        site_name, site_cfg = resolve_section(cfg, "sites", site, cfg_path)
+        the_site = Site(
+            label=pick(label, "label", site_cfg, site_name or DEFAULTS.site_label),
+            lat=pick(lat, "lat", site_cfg, DEFAULTS.lat),
+            lon=pick(lon, "lon", site_cfg, DEFAULTS.lon),
+            elev=pick(elev, "elev", site_cfg, DEFAULTS.elev),
+            tz=pick(tz, "tz", site_cfg, DEFAULTS.tz),
+            bortle=pick(bortle, "bortle", site_cfg, None),
+            sqm=pick(sqm, "sqm", site_cfg, None),
+        )
+        rig = _resolve_rig(cfg, cfg_path, optics, focal, sensor)
+        hrz_val = pick(hrz, "hrz", site_cfg, None)
+        if hrz_val is None:
+            horizon = Horizon.flat(0.0)
+        else:
+            hrz_path = Path(hrz_val)
+            # config-relative resolution: a config can live anywhere
+            if hrz is None and cfg_path and not hrz_path.is_absolute():
+                hrz_path = cfg_path.parent / hrz_path
+            horizon = Horizon.from_hrz(hrz_path)
+
+        all_targets = build_targets(
+            pyongc_catalogs=_catalog_list(cfg, catalogs),
+            mag_limit=99.0,  # never hide the requested target behind a mag cut
+            targets_file=pick(targets, "targets", cfg, None),
+        )
+        the_target = _find_one_target(target, all_targets)
+
+        nights = score_nights(
+            site=the_site,
+            rig=rig,
+            horizon=horizon,
+            target=the_target,
+            start=start,
+            days=days,
+            grid_min=grid_min,
+        )
+    except HarpError as e:
+        raise _fail(e) from None
+
+    ranked = nights if top == 0 else best_nights(nights, top)
+
+    if json_out:
+        import json
+
+        from harp.api import schedule_to_dict
+
+        print(json.dumps(schedule_to_dict(the_target.name, the_site.label, ranked), indent=2))
+        return
+
+    print(f"{the_target.name} from {the_site.label} — {days} nights from {nights[0].date}")
+    if not any(n.usable for n in nights):
+        print("never clears the horizon in this window.")
+        return
+    print(f"{'date':<12}{'score':>6}{'cont':>7}{'hours':>7}{'alt':>5}{'moon':>6}{'sep':>5}  window")
+    for n in ranked:
+        if not n.usable:
+            print(f"{n.date:<12}{'--':>6}{'':>7}{'':>7}{'':>5}{'':>6}{'':>5}  (below horizon)")
+            continue
+        print(
+            f"{n.date:<12}{n.score:>6.1f}{n.cont_hours:>6.1f}h{n.hours:>6.1f}h"
+            f"{n.alt_max:>5.0f}{n.moon_illum * 100:>5.0f}%{n.moon_sep:>5.0f}  {n.window}"
+        )
+
+
 # ---------------------------------------------------------------------------
 # Observation log
 # ---------------------------------------------------------------------------

@@ -24,7 +24,17 @@ astronomical core are all on the phone. No account, no network, no telemetry.
   computed from the selected saved site and its captured horizon. Each row also
   carries a **log** action and shows how much integration that target already
   has (`▣ 8h 20m`), writing to the same `observations.yaml` the
-  [`harp log`](/guide/usage#observation-log) CLI reads.
+  [`harp log`](/guide/usage#observation-log) CLI reads. A **when** action ranks
+  the coming nights for that target — the app's
+  [`harp when`](/guide/usage#when-to-shoot-one-target).
+
+  ::: warning The "when" sweep is slow on a phone
+  It plans one night per day in the window, and Chaquopy runs several times
+  slower than desktop Python: a fortnight that takes ~1.5 s on a laptop is
+  plausibly ~10 s on a phone. So it defaults to **14 nights** rather than the
+  CLI's 30, shows a progress indicator, and never starts on its own — you tap
+  **when**, and 7/14/30-day chips let you extend once you have seen the cost.
+  :::
 - **Align** — polar alignment in two stages: a live compass rose for finding
   the pole by eye, then an assistant that reads the phone's attitude while it
   is fixed to the mount and gives azimuth/altitude bolt corrections with a

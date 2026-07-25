@@ -502,6 +502,55 @@ geometric mean with a floor, so a hopeless-from-here object sinks but still
 appears. If your sky improves — or you drive somewhere darker — change one
 number and the ranking follows.
 
+## When to shoot one target
+
+`harp plan` asks *what should I shoot tonight?*. `harp when` asks the question
+imagers ask more often — *when is the best night this month for this target?*
+
+```bash
+harp when M51                        # next 30 nights, best 10 shown
+harp when IC1396 --days 60 --top 5   # look further ahead
+harp when M42 --start 2026-02-01 --top 0   # whole window, in date order
+harp when M51 --json                 # machine-readable
+```
+
+```
+$ harp when M51 --start 2026-02-01 --days 28 --top 6
+M51 Whirlpool Galaxy from Castelli Balcony — 28 nights from 2026-02-01
+date         score   cont  hours  alt  moon  sep  window
+2026-02-13    91.2   9.2h   9.2h   85   14%  103  19:12-04:12
+2026-02-15    91.2   9.0h   9.0h   85    3%  117  19:14-04:04
+2026-02-17    91.2   8.8h   8.8h   85    0%  126  19:17-03:57
+2026-02-11    91.1   9.3h   9.3h   85   30%   89  19:10-04:20
+```
+
+The best nights for a galaxy cluster around **new Moon** — which is the whole
+point of asking. Nights are ranked by the *same* desirability score `harp plan`
+uses, so "best" means the same thing in both commands; there is no second
+scoring model to drift out of step.
+
+::: tip A flat month can be the correct answer
+Ask `harp when` about a narrowband target and every night may score alike.
+That is not a bug: a dual-band filter really is near-immune to moonlight, so
+for the Heart Nebula the Moon genuinely does not decide. The ranking then falls
+back to the **longest continuous window**, which is the next thing worth
+driving out for.
+:::
+
+Nights on which the target never clears your horizon are reported as such
+rather than dropped, so the calendar has no holes — you can tell "a bad night"
+from "no such night". If the target never rises at all in the window, the
+command says so in one line instead of printing an empty table.
+
+The [Android app](/guide/android) offers the same thing as a **when** action
+on each plan row, defaulting to a 14-night window because a phone is several
+times slower than a laptop.
+
+**Speed.** A month-long sweep takes about 2 seconds because the target is
+filtered *before* the sweep, not after: planning the whole catalogue 30 times
+would take 47. `--grid-min` defaults to 10 rather than `plan`'s 5, since
+telling good nights from bad does not need minute precision.
+
 ## Observation log
 
 HARP plans a night and then forgets it. `harp log` closes the loop, and it
@@ -592,6 +641,7 @@ What the surface offers, by area:
 | Area | Entry points |
 | --- | --- |
 | Planning | `plan_night`, `desirability`, `NightPlan`, `PlanRow`, `Site` |
+| Multi-night | `score_nights`, `best_nights`, `NightScore` |
 | Targets | `build_targets`, `find_targets`, `filter_targets`, `user_targets`, `kind_class`, `FILTER_TOKENS`, `Target` |
 | Optics & mosaics | `Rig`, `parse_sensor`, `mosaic_panels`, `Panel` |
 | Horizon | `Horizon`, `build_profile`, `validate_profile`, `write_hrz` |
@@ -599,11 +649,11 @@ What the surface offers, by area:
 | Polar alignment | `polar_align_to_dict`, `reticle_position`, `MOUNTS`, `Mount`, `ReticleFix` |
 | Sky quality | `contrast_score`, `sky_brightness`, `surface_brightness`, `BORTLE_SQM` |
 | Observation log | `ObservationLog`, `LogEntry`, `TargetTotal`, `default_log_path`, `fmt_integration` |
-| JSON converters | `plan_to_dict`, `target_to_dict`, `info_to_dict`, `panels_to_dict`, `site_to_dict`, `mounts_to_dict`, `log_to_dict` |
+| JSON converters | `plan_to_dict`, `target_to_dict`, `info_to_dict`, `panels_to_dict`, `site_to_dict`, `mounts_to_dict`, `log_to_dict`, `schedule_to_dict` |
 | Links | `target_link` |
 
 ::: info API stability
-Breaking changes to `harp.api` bump `API_VERSION` (currently **5**) and the
+Breaking changes to `harp.api` bump `API_VERSION` (currently **6**) and the
 package minor version. The Android app is built on this same surface, which is
 what keeps it from drifting away from the CLI.
 :::

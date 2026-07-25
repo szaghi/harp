@@ -15,10 +15,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -37,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 
@@ -47,9 +50,28 @@ import androidx.compose.ui.unit.dp
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun PlanScreen(vm: PlanViewModel, sitesVm: SitesViewModel, logVm: LogViewModel) {
+fun PlanScreen(
+    vm: PlanViewModel,
+    sitesVm: SitesViewModel,
+    logVm: LogViewModel,
+    schedVm: ScheduleViewModel,
+) {
     // Which target the log dialog is open for; null = closed.
     var logTarget by rememberSaveable { mutableStateOf<String?>(null) }
+    // Same, for the "when should I shoot this" sheet.
+    var whenTarget by rememberSaveable { mutableStateOf<String?>(null) }
+
+    whenTarget?.let { target ->
+        WhenDialog(
+            target = target,
+            vm = schedVm,
+            onDismiss = {
+                whenTarget = null
+                schedVm.reset()
+            },
+        )
+    }
+
     // Totals are read once per entry to the tab: the log only changes when the
     // user logs something, and addSession refreshes them itself.
     LaunchedEffect(Unit) { logVm.refresh() }
@@ -191,6 +213,10 @@ fun PlanScreen(vm: PlanViewModel, sitesVm: SitesViewModel, logVm: LogViewModel) 
                             color = MaterialTheme.colorScheme.primary,
                         )
                         TextButton(onClick = { logTarget = r.name }) { Text("log") }
+                        TextButton(onClick = {
+                            whenTarget = r.name
+                            schedVm.run(r.name)
+                        }) { Text("when") }
                     }
                     Text(
                         "${r.hours} h  |  ${r.window}  |  Moon ${r.moon}  |  ${r.frame}",
@@ -305,3 +331,95 @@ private fun LogSessionDialog(
 /** Today as YYYY-MM-DD, the log's date format. */
 private fun todayIso(): String =
     java.time.LocalDate.now().toString()
+
+/**
+ * The best nights for one target.
+ *
+ * Deliberately explicit about cost: the sweep plans one night per day and is
+ * the slowest thing the app does, so it shows a progress indicator while
+ * running and lets the user choose a longer window only after seeing what a
+ * fortnight costs. It never starts on its own.
+ */
+@Composable
+private fun WhenDialog(
+    target: String,
+    vm: ScheduleViewModel,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Best nights for $target") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    ScheduleViewModel.DAY_CHOICES.forEach { d ->
+                        FilterChip(
+                            selected = vm.days == d,
+                            enabled = !vm.running,
+                            onClick = { vm.run(target, d) },
+                            label = { Text("${d}d") },
+                        )
+                    }
+                }
+                when {
+                    vm.running -> {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                            Text(
+                                "scoring ${vm.days} nights…",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
+
+                    vm.error.isNotEmpty() -> Text(
+                        vm.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+
+                    !vm.anyUsable -> Text(
+                        "never clears your horizon in the next ${vm.days} nights.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+
+                    vm.nights.isEmpty() -> Text(
+                        "no nights scored.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+
+                    else -> {
+                        Text(
+                            "date        score  cont   moon",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontFamily = FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        vm.nights.forEach { n ->
+                            Text(
+                                "%-11s %5.1f %5.1fh %5s".format(
+                                    n.date.removePrefix("20"),
+                                    n.score,
+                                    n.contHours,
+                                    n.moonLabel,
+                                ),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontFamily = FontFamily.Monospace,
+                            )
+                        }
+                        Text(
+                            "ranked by the same score as the plan; the Moon column is " +
+                                "usually why one night wins.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+    )
+}

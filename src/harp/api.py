@@ -27,6 +27,7 @@ from harp.mosaic import Panel, mosaic_panels
 from harp.optics import Rig, parse_sensor
 from harp.planner import NightPlan, PlanRow, Site, desirability, plan_night
 from harp.polar import MOUNTS, Mount, ReticleFix, reticle_position
+from harp.schedule import NightScore, best_nights, score_nights
 from harp.sites import SiteEntry, SitesConfig, default_config_path, slugify
 from harp.sky import BORTLE_SQM, contrast_score, sky_brightness, surface_brightness
 
@@ -38,9 +39,12 @@ from harp.sky import BORTLE_SQM, contrast_score, sky_brightness, surface_brightn
 #    surface_brightness) with optional Site.bortle/sqm and Rig.aperture_mm.
 #    Neutral by default: a site that declares no sky ranks exactly as before.
 # 5: the observation log (LogEntry/ObservationLog/TargetTotal, log_to_dict),
-#    so a frontend can record and total what was actually imaged. Additive --
-#    no existing converter or signature changed.
-API_VERSION = "5"
+#    so a frontend can record and total what was actually imaged.
+# 6: multi-night scheduling (NightScore/score_nights/best_nights,
+#    schedule_to_dict) -- "when should I shoot this target", the inverse of
+#    plan_night. Additive, and it reuses the same desirability score rather
+#    than inventing a second definition of "good".
+API_VERSION = "6"
 
 __all__ = [
     "API_VERSION",
@@ -51,6 +55,7 @@ __all__ = [
     "LogEntry",
     "Mount",
     "NightPlan",
+    "NightScore",
     "ObservationLog",
     "Panel",
     "PlanRow",
@@ -61,6 +66,7 @@ __all__ = [
     "SitesConfig",
     "Target",
     "TargetTotal",
+    "best_nights",
     "build_profile",
     "build_targets",
     "contrast_score",
@@ -81,6 +87,8 @@ __all__ = [
     "plan_to_dict",
     "polar_align_to_dict",
     "reticle_position",
+    "schedule_to_dict",
+    "score_nights",
     "site_to_dict",
     "sky_brightness",
     "slugify",
@@ -348,6 +356,35 @@ def polar_align_to_dict(
         "mount_label": fix.mount.label,
         "mirrored": fix.mount.mirrored,
         "mount_verified": fix.mount.verified,
+    }
+
+
+def schedule_to_dict(target_name: str, site_label: str, nights: list[NightScore]) -> dict[str, Any]:
+    """JSON-safe view of a multi-night schedule for one target.
+
+    Nights are emitted in the order given, so the caller decides whether the
+    payload is a ranking (:func:`harp.schedule.best_nights`) or a calendar
+    (:func:`harp.schedule.score_nights`).
+    """
+    return {
+        "api_version": API_VERSION,
+        "target": target_name,
+        "site": site_label,
+        "nights": [
+            {
+                "date": n.date,
+                "score": round(n.score, 1),
+                "hours": n.hours,
+                "cont_hours": n.cont_hours,
+                "window": n.window,
+                "alt_max": n.alt_max,
+                "moon_sep": n.moon_sep,
+                "moon": n.moon,
+                "moon_illum": n.moon_illum,
+                "usable": n.usable,
+            }
+            for n in nights
+        ],
     }
 
 

@@ -84,6 +84,9 @@ fun HarpApp() {
     // and logs sessions, and Settings offers the export — one instance keeps
     // those views consistent without either re-reading the file behind the other.
     val logVm = viewModel<LogViewModel>()
+    // Multi-night scheduling shares one instance so the sheet's state survives
+    // a recomposition of the row that opened it.
+    val schedVm = viewModel<ScheduleViewModel>()
 
     HarpAppTheme(nightVision = settings.nightVision, indoorThemeId = settings.indoorTheme) {
         Scaffold { padding ->
@@ -116,7 +119,7 @@ fun HarpApp() {
                 when (tab) {
                     0 -> HomeScreen(viewModel<HomeViewModel>()) { tab = it }
                     1 -> HorizonScreen(viewModel<HorizonViewModel>(), sitesVm)
-                    2 -> PlanScreen(viewModel<PlanViewModel>(), sitesVm, logVm)
+                    2 -> PlanScreen(viewModel<PlanViewModel>(), sitesVm, logVm, schedVm)
                     3 -> CompassScreen(viewModel<CompassViewModel>())
                     4 -> SettingsScreen(settingsVm, logVm)
                 }

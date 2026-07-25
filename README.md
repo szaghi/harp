@@ -55,8 +55,11 @@
 <td><b>🧭 Polar alignment in twilight</b><br><sub>The Android app rough-aligns the mount <em>before Polaris is visible</em>: strap the phone to the tube and it gives live azimuth/altitude bolt corrections onto the refracted pole, with a bullseye whose inner ring is a polar-scope field. Honest about its ±1-2° magnetometer limit — which is exactly what a 5-8° polar scope needs. Refine afterwards with N.I.N.A. TPPA. <a href="https://szaghi.github.io/harp/guide/usage#polar-alignment">Polar alignment guide</a></sub></td>
 </tr>
 <tr>
+<td><b>🗓️ When, not just what</b><br><sub><code>harp when M51 --days 30</code> inverts the question: instead of ranking targets for tonight, it ranks the coming nights for one target. Same desirability score, so "best" means the same thing in both. For a galaxy the top nights cluster around new Moon; for a narrowband target a flat month is the honest answer, and the ranking falls back to the longest continuous window. ~2 s for a month. <a href="https://szaghi.github.io/harp/guide/usage#when-to-shoot-one-target">Scheduling guide</a></sub></td>
 <td><b>📓 Observation log</b><br><sub><code>harp log add M42</code> records what you actually shot — subs, exposure, filter, notes — and <code>harp log list</code> totals it per target ("M42: 8h 20m over 2 sessions"). Integration time, not prose, because that is the question imagers ask. Plain hand-editable YAML beside your sites config; <code>M42</code> and <code>M 42</code> are matched as one object. The Android app writes the same file from a <b>log</b> action on each plan row, and shows the integration already banked on a target. <a href="https://szaghi.github.io/harp/guide/usage#observation-log">Log guide</a></sub></td>
-<td><b>🐍 Stable Python API</b><br><sub><code>harp plan/info/mosaic --json</code> emit machine-readable output, and <code>harp.api</code> is the supported import surface for scripts and frontends — planning, targets, optics, horizons, saved sites, sky quality, the observation log and polar geometry. Breaking changes bump <code>API_VERSION</code>; the Android app rides the same surface, which is what stops it drifting from the CLI. <a href="https://szaghi.github.io/harp/guide/usage#scripting-json-and-the-python-api">Scripting guide</a></sub></td>
+</tr>
+<tr>
+<td colspan="2"><b>🐍 Stable Python API</b><br><sub><code>harp plan/info/mosaic --json</code> emit machine-readable output, and <code>harp.api</code> is the supported import surface for scripts and frontends — planning, targets, optics, horizons, saved sites, sky quality, the observation log and polar geometry. Breaking changes bump <code>API_VERSION</code>; the Android app rides the same surface, which is what stops it drifting from the CLI. <a href="https://szaghi.github.io/harp/guide/usage#scripting-json-and-the-python-api">Scripting guide</a></sub></td>
 </tr>
 </table>
 </div>
@@ -152,7 +155,8 @@ Five tabs, all working offline:
   sensors: true-north azimuths computed on-device (built-in World Magnetic
   Model, no manual declination), tap-to-record vertices, `.hrz` export.
 - **Plan** — the full ranking on-device, with filter chips by target class.
-  Each row logs a session and shows the integration already on that target.
+  Each row logs a session, shows the integration already banked on that
+  target, and can rank the coming nights for it.
 - **Align** — a compass rose plus a polar-alignment assistant that gives live
   bolt corrections while the phone is fixed to the mount.
 - **Settings** — rig, planning thresholds, catalogues, seven indoor themes, a

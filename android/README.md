@@ -145,6 +145,25 @@ other.
   a plan is recomputed in seconds, an observing history is gone. Hence writes
   go straight through the core's own save (no dirty in-memory copy a process
   death would discard), and Settings carries an export button.
+- **Phase 8 — multi-night scheduling** (`harp.api` `API_VERSION` 6): a **when**
+  action on each Plan row ranks the coming nights for that target through
+  `schedule_bridge` -> `harp.schedule`, the same ranking `harp when` produces.
+
+  This is the app's most expensive call by a wide margin: it plans one night
+  per day in the window, and Chaquopy runs several times slower than desktop
+  CPython (a fortnight measured at 1.5 s on a laptop is plausibly ~10 s on a
+  phone). Three consequences, all deliberate:
+  - **14-night default**, half the CLI's 30. The usual question is "when in the
+    next fortnight?", and 7/14/30 chips let the user extend after seeing the
+    cost.
+  - **Never implicit.** It runs only on an explicit tap, with a progress
+    indicator, because a screen that silently blocks for ten seconds reads as
+    a crash.
+  - **Target filtered BEFORE the sweep**, never after. Planning the whole
+    catalogue once per night would multiply the cost by the catalogue size.
+
+  `MAX_DAYS = 90` in the bridge is a backstop so a malformed request cannot
+  start a multi-minute sweep the user has no way to cancel.
 - **Core capability — Sharpless emission nebulae**: the shared core ships the
   313 Sharpless (Sh2) H II regions and their measured sizes, correcting
   OpenNGC's under-sized nebulae via a vendored Sh2↔NGC/IC/M concordance
