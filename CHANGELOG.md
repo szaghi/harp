@@ -4,6 +4,11 @@ All notable changes to HARP are documented here.
 Versions follow [Semantic Versioning](https://semver.org/).
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.3.3] — 2026-07-25
+### Added
+- **schedule**: Rank the coming nights for one target, CLI and app
+
+
 ## [0.3.2] — 2026-07-24
 ### Added
 - **log**: Record and total what you actually imaged, CLI and app
