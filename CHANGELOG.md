@@ -4,6 +4,11 @@ All notable changes to HARP are documented here.
 Versions follow [Semantic Versioning](https://semver.org/).
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.3.5] — 2026-07-25
+### Fixed
+- **android**: Let saved sites carry Bortle/SQM sky quality
+
+
 ## [0.3.4] — 2026-07-25
 ### Added
 - **comets**: Rank observable comets from MPC elements, CLI and app
