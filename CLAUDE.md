@@ -39,6 +39,13 @@ status.
   interface; always via `.venv`, never system Python
 - `./release.sh --major|--minor|--patch|X.Y.Z` — trunk release on `main`,
   tag push triggers CI → PyPI (never publish locally)
+- `gradle -p android :app:assembleDebug --rerun-tasks` — build the Android
+  debug APK **locally**. There is no Gradle wrapper, so this uses the system
+  `gradle`. Output: `android/app/build/outputs/apk/debug/app-debug.apk`.
+  Toolchain: Gradle 8.13, JDK 21, SDK at `/home/stefano/android-sdk`
+  (only `android-35` installed). **Run this before claiming any Kotlin change
+  works** — GitHub Actions is not the only gate, and a local build is far
+  cheaper than a push/CI round-trip.
 
 ## Conventions
 
@@ -46,6 +53,13 @@ status.
   (kept in sync by `release.sh` — bump both or neither)
 - Exceptions: raise subclasses of `harp.errors.HarpError`, never bare
   `Exception`
+- Android toolchain is pinned low: **compileSdk/targetSdk 35, AGP 8.7.3**.
+  Library versions must respect that floor — CameraX is held at **1.5.x**
+  because 1.6.x demands compileSdk 36 + AGP 8.9.1 and fails
+  `:app:checkDebugAarMetadata` outright. Checking that an API exists in a
+  release is *not* enough; check the release's AGP/compileSdk requirement too.
+- Editing `src/` requires `--rerun-tasks` on the next Android build, or the
+  APK silently ships stale bytecode — see `android/README.md` for the why
 - Global Python conventions (ruff patterns, typing, docstrings, logging)
   come from `~/.claude/CLAUDE.md` — NumPy-style docstrings here (scientific
   code)

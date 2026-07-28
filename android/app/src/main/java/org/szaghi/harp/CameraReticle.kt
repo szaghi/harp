@@ -2,16 +2,14 @@ package org.szaghi.harp
 
 import android.graphics.Bitmap
 import android.graphics.Paint
-import android.hardware.camera2.CameraCharacteristics
 import android.util.Size
-import androidx.annotation.OptIn
-import androidx.camera.camera2.interop.Camera2CameraInfo
-import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.core.UseCase
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
@@ -41,7 +39,6 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import java.util.concurrent.Executors
-import kotlin.math.atan
 import kotlin.math.roundToInt
 
 /**
@@ -79,9 +76,22 @@ fun CameraReticle(
                 p.unbindAll()
                 val useCases = mutableListOf<UseCase>()
                 if (falseColor) {
-                    @Suppress("DEPRECATION")
+                    // ResolutionSelector replaces setTargetResolution, which is
+                    // deprecated in the CameraX 1.5+ line. The strategy picks
+                    // the closest available size to 320x240, preferring lower:
+                    // this pass is a luminance preview, so smaller is fine and
+                    // cheaper per frame.
                     val analysis = ImageAnalysis.Builder()
-                        .setTargetResolution(Size(320, 240))
+                        .setResolutionSelector(
+                            ResolutionSelector.Builder()
+                                .setResolutionStrategy(
+                                    ResolutionStrategy(
+                                        Size(320, 240),
+                                        ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER,
+                                    ),
+                                )
+                                .build(),
+                        )
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .build()
                     analysis.setAnalyzer(executor) { img ->
@@ -125,22 +135,6 @@ fun CameraReticle(
         }
         ReticleOverlay(vm, fovLong, fovShort, Modifier.fillMaxSize())
     }
-}
-
-@OptIn(ExperimentalCamera2Interop::class)
-private fun readFov(info: androidx.camera.core.CameraInfo): Pair<Float, Float>? = try {
-    val c2 = Camera2CameraInfo.from(info)
-    val focal = c2.getCameraCharacteristic(
-        CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS
-    )?.firstOrNull()
-    val sensor = c2.getCameraCharacteristic(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE)
-    if (focal != null && sensor != null) {
-        val long = Math.toDegrees(2.0 * atan(sensor.width / (2.0 * focal))).toFloat()
-        val short = Math.toDegrees(2.0 * atan(sensor.height / (2.0 * focal))).toFloat()
-        long to short
-    } else null
-} catch (_: Exception) {
-    null
 }
 
 /** Az/alt graticule: 5-deg lines, thick red horizon, roll-compensated. */

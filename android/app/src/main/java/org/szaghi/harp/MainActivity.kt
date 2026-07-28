@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -65,11 +66,15 @@ fun HarpApp() {
     // "Align" covers both of that tab's stages — the sensor compass and the
     // polar-alignment assistant — and is short enough never to clip as the
     // selected label; the fuller names live on the stage switch inside.
+    //
+    // "Shoot" sits after Align because it is the last step of the workflow:
+    // plan the night, set the site, pick targets, align the mount, then shoot.
     val tabs = listOf(
         TabItem("Home", Icons.Filled.Home),
         TabItem("Horizon", HorizonIcon),
         TabItem("Plan", Icons.AutoMirrored.Filled.List),
         TabItem("Align", CompassRoseIcon),
+        TabItem("Shoot", Icons.Filled.PlayArrow),
         TabItem("Settings", Icons.Filled.Settings),
     )
     // Settings are hoisted here so the chosen theme wraps the whole app and
@@ -121,7 +126,8 @@ fun HarpApp() {
                     1 -> HorizonScreen(viewModel<HorizonViewModel>(), sitesVm)
                     2 -> PlanScreen(viewModel<PlanViewModel>(), sitesVm, logVm, schedVm)
                     3 -> CompassScreen(viewModel<CompassViewModel>())
-                    4 -> SettingsScreen(settingsVm, logVm)
+                    4 -> ShootScreen(viewModel<ShootViewModel>())
+                    5 -> SettingsScreen(settingsVm, logVm)
                 }
             }
         }

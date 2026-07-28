@@ -214,7 +214,7 @@ class TestWhenCli:
         )
         assert res.exit_code == 0, res.output
         data = json.loads(res.output)
-        assert data["api_version"] == "7"
+        assert data["api_version"] == "8"
         assert data["target"].startswith("M51")
         assert len(data["nights"]) == 3
         assert {"date", "score", "cont_hours", "moon_illum"} <= set(data["nights"][0])

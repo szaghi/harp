@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 
 /**
@@ -50,7 +51,7 @@ import androidx.compose.material.icons.filled.Settings
  *
  * The right two-thirds hold the operational tabs as planets on faint
  * elliptical paths, ordered outward as the actual workflow: set the site ->
- * plan the night -> align the mount -> configure.
+ * plan the night -> align the mount -> shoot -> configure.
  *
  * Construction: the Sun and the orbit ellipses are a [Canvas] (they are pure
  * geometry), but every planet is a real composable with an [Icon] and [Text].
@@ -59,8 +60,9 @@ import androidx.compose.material.icons.filled.Settings
  * canvas-drawn dashboard would have.
  *
  * The composition is authored in a 160x320 design space and scaled uniformly,
- * so it is identical on every screen. Planets are laid out for FOUR tabs;
- * adding a fifth means re-spacing [PLANETS], not appending to it.
+ * so it is identical on every screen. Planets are laid out for FIVE tabs;
+ * adding a sixth means re-spacing [PLANETS], not appending to it — the
+ * vertical band is already full, and an appended body would overlap Settings.
  */
 @Composable
 fun HomeScreen(vm: HomeViewModel, onNavigate: (Int) -> Unit) {
@@ -240,15 +242,26 @@ private data class Planet(
 )
 
 /**
- * Positions match the approved mockup. [tabIndex] is the index in
- * [MainActivity]'s tab list, where Home is 0 — so the planets start at 1.
+ * The operational tabs, ordered outward as the workflow runs.
+ *
+ * [tabIndex] is the index in [MainActivity]'s tab list, where Home is 0 — so
+ * the planets start at 1. Keep these in step with that list: a stale index
+ * silently routes a planet to the wrong tab, which is invisible in review and
+ * obvious only to whoever taps it in the field.
+ *
+ * Re-spaced for FIVE bodies. Inserting Shoot between Align and Settings would
+ * have halved the tightest gap in the sequence and overlapped their discs, so
+ * the whole descent was recomputed: vertical gaps still narrow outward
+ * (72, 68, 56, 44) and every centre-to-centre distance clears the sum of the
+ * two radii it separates.
  */
 private val PLANETS: List<Planet>
     @Composable get() = listOf(
-        Planet("Horizon", 100f, 60f, 15f, HorizonIcon, tabIndex = 1),
-        Planet("Plan", 126f, 152f, 16f, Icons.AutoMirrored.Filled.List, tabIndex = 2),
-        Planet("Align", 84f, 234f, 15f, CompassRoseIcon, tabIndex = 3),
-        Planet("Settings", 132f, 286f, 12f, Icons.Filled.Settings, tabIndex = 4, subdued = true),
+        Planet("Horizon", 102f, 56f, 15f, HorizonIcon, tabIndex = 1),
+        Planet("Plan", 128f, 128f, 16f, Icons.AutoMirrored.Filled.List, tabIndex = 2),
+        Planet("Align", 86f, 196f, 15f, CompassRoseIcon, tabIndex = 3),
+        Planet("Shoot", 124f, 252f, 16f, Icons.Filled.PlayArrow, tabIndex = 4),
+        Planet("Settings", 136f, 296f, 12f, Icons.Filled.Settings, tabIndex = 5, subdued = true),
     )
 
 private fun DrawScope.drawSun(core: Color, mid: Color, limb: Color) {

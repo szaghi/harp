@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.AndroidViewModel
@@ -61,6 +62,36 @@ data class AppSettings(
     // refinement for the fastidious, not a required input.
     val pressureHpa: Float = 1010f,
     val tempC: Float = 10f,
+    // --- Shoot tab ---------------------------------------------------------
+    // Measured longest exposure the sensor actually delivered, nanoseconds; 0
+    // means "never calibrated". Persisted because the probe is a one-off: it
+    // costs a minute of real captures, and re-running it every launch would be
+    // rude. See ExposureCalibration for why measuring beats trusting the
+    // advertised range.
+    val exposureCalibratedNs: Long = 0L,
+    // Opt-in to exposures beyond what the sensor advertises. Off until the
+    // probe has both run and found a real improvement -- the conservative
+    // direction, so a stale or failed calibration can never lengthen a frame.
+    val extendedExposure: Boolean = false,
+    // Last-used capture settings, so the tab reopens where the user left it.
+    val shootExposureNs: Long = 0L, // 0 = use the calibrated/advertised maximum
+    val shootIso: Int = 0, // 0 = use the advisor's suggestion
+    // Focus in dioptres; 0.0 is infinity, which is both the default and the
+    // right answer for almost every astro frame.
+    val shootFocusDioptres: Float = 0f,
+    // Display-only preview brightening. Persisted because the value a user
+    // settles on is a property of their eyes and their sky, not of one session.
+    val shootPreviewGain: Float = 4f,
+    val shootPeaking: Boolean = true,
+    // --- Sequence (intervalometer) -----------------------------------------
+    // Persisted for the same reason as the capture settings: a sequence
+    // interrupted by a dead battery or a stray back-press should not also cost
+    // the user the setup they typed in the dark. An empty name means "derive
+    // one from the selected target".
+    val shootSessionName: String = "",
+    val shootDurationMin: Int = 60,
+    val shootStartDelaySec: Int = 5,
+    val shootDitherEvery: Int = 0, // 0 disables dithering
 )
 
 class SettingsRepo(private val context: Context) {
@@ -87,6 +118,17 @@ class SettingsRepo(private val context: Context) {
         val COMET_MAG_LIMIT = floatPreferencesKey("comet_mag_limit")
         val PRESSURE_HPA = floatPreferencesKey("pressure_hpa")
         val TEMP_C = floatPreferencesKey("temp_c")
+        val EXPOSURE_CALIBRATED_NS = longPreferencesKey("exposure_calibrated_ns")
+        val EXTENDED_EXPOSURE = booleanPreferencesKey("extended_exposure")
+        val SHOOT_EXPOSURE_NS = longPreferencesKey("shoot_exposure_ns")
+        val SHOOT_ISO = intPreferencesKey("shoot_iso")
+        val SHOOT_FOCUS_DIOPTRES = floatPreferencesKey("shoot_focus_dioptres")
+        val SHOOT_PREVIEW_GAIN = floatPreferencesKey("shoot_preview_gain")
+        val SHOOT_PEAKING = booleanPreferencesKey("shoot_peaking")
+        val SHOOT_SESSION_NAME = stringPreferencesKey("shoot_session_name")
+        val SHOOT_DURATION_MIN = intPreferencesKey("shoot_duration_min")
+        val SHOOT_START_DELAY_SEC = intPreferencesKey("shoot_start_delay_sec")
+        val SHOOT_DITHER_EVERY = intPreferencesKey("shoot_dither_every")
     }
 
     val flow: Flow<AppSettings> = context.dataStore.data.map { p ->
@@ -113,6 +155,17 @@ class SettingsRepo(private val context: Context) {
             cometMagLimit = p[COMET_MAG_LIMIT] ?: 12f,
             pressureHpa = p[PRESSURE_HPA] ?: 1010f,
             tempC = p[TEMP_C] ?: 10f,
+            exposureCalibratedNs = p[EXPOSURE_CALIBRATED_NS] ?: 0L,
+            extendedExposure = p[EXTENDED_EXPOSURE] ?: false,
+            shootExposureNs = p[SHOOT_EXPOSURE_NS] ?: 0L,
+            shootIso = p[SHOOT_ISO] ?: 0,
+            shootFocusDioptres = p[SHOOT_FOCUS_DIOPTRES] ?: 0f,
+            shootPreviewGain = p[SHOOT_PREVIEW_GAIN] ?: 4f,
+            shootPeaking = p[SHOOT_PEAKING] ?: true,
+            shootSessionName = p[SHOOT_SESSION_NAME] ?: "",
+            shootDurationMin = p[SHOOT_DURATION_MIN] ?: 60,
+            shootStartDelaySec = p[SHOOT_START_DELAY_SEC] ?: 5,
+            shootDitherEvery = p[SHOOT_DITHER_EVERY] ?: 0,
         )
     }
 

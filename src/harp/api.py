@@ -21,6 +21,14 @@ from harp.catalog import (
     user_targets,
 )
 from harp.comets import CometElements, comet_targets, fetch_comet_elements
+from harp.exposure import (
+    ExposurePlan,
+    SensorSpec,
+    frames_for_integration,
+    npf_max_seconds,
+    recommend_iso,
+    sky_limited_seconds,
+)
 from harp.horizon import Horizon, build_profile, validate_profile, write_hrz
 from harp.links import LINK_PROVIDERS, target_link
 from harp.log import LogEntry, ObservationLog, TargetTotal, default_log_path, fmt_integration
@@ -49,7 +57,11 @@ from harp.sky import BORTLE_SQM, contrast_score, sky_brightness, surface_brightn
 #    targets positioned by two-body Kepler propagation from MPC elements.
 #    ONLINE opt-in (like ss_moons): build_targets gains comet_elements, and a
 #    new 'comet' class/filter token. Offline plans are byte-for-byte unchanged.
-API_VERSION = "7"
+# 8: exposure planning (SensorSpec/ExposurePlan, npf_max_seconds,
+#    sky_limited_seconds, recommend_iso, frames_for_integration) for the
+#    camera-on-tracker workflow. Pure additions: no existing converter or
+#    signature changes, so a frontend built against 7 keeps working.
+API_VERSION = "8"
 
 __all__ = [
     "API_VERSION",
@@ -57,6 +69,7 @@ __all__ = [
     "FILTER_TOKENS",
     "MOUNTS",
     "CometElements",
+    "ExposurePlan",
     "Horizon",
     "LogEntry",
     "Mount",
@@ -67,6 +80,7 @@ __all__ = [
     "PlanRow",
     "ReticleFix",
     "Rig",
+    "SensorSpec",
     "Site",
     "SiteEntry",
     "SitesConfig",
@@ -84,21 +98,25 @@ __all__ = [
     "filter_targets",
     "find_targets",
     "fmt_integration",
+    "frames_for_integration",
     "info_to_dict",
     "kind_class",
     "log_to_dict",
     "mosaic_panels",
     "mounts_to_dict",
+    "npf_max_seconds",
     "panels_to_dict",
     "parse_sensor",
     "plan_night",
     "plan_to_dict",
     "polar_align_to_dict",
+    "recommend_iso",
     "reticle_position",
     "schedule_to_dict",
     "score_nights",
     "site_to_dict",
     "sky_brightness",
+    "sky_limited_seconds",
     "slugify",
     "surface_brightness",
     "target_link",

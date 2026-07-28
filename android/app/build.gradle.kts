@@ -74,9 +74,24 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
-    // camera reticle (phase 2b)
-    implementation("androidx.camera:camera-core:1.4.1")
-    implementation("androidx.camera:camera-camera2:1.4.1")
-    implementation("androidx.camera:camera-lifecycle:1.4.1")
-    implementation("androidx.camera:camera-view:1.4.1")
+    // Camera: the horizon reticle (phase 2b) and the Shoot tab.
+    //
+    // The 1.5 line is required by Shoot, not optional: DNG/RAW still capture
+    // (ImageCapture.OUTPUT_FORMAT_RAW, getImageCaptureCapabilities) does not
+    // exist in 1.4.x at all. Manual sensor control (exposure/ISO/focus) has no
+    // first-class CameraX API and rides on Camera2Interop from camera-camera2,
+    // which must stay at the same version as camera-core.
+    //
+    // PINNED TO 1.5.x DELIBERATELY: 1.6.x raises its floor to compileSdk 36 and
+    // AGP 8.9.1, which this project (compileSdk 35, AGP 8.7.3) does not meet --
+    // :app:checkDebugAarMetadata fails outright. 1.5.3 targets compileSdk 35
+    // and carries the same RAW API, so it buys nothing to chase 1.6 until the
+    // whole toolchain moves.
+    implementation("androidx.camera:camera-core:1.5.3")
+    implementation("androidx.camera:camera-camera2:1.5.3")
+    implementation("androidx.camera:camera-lifecycle:1.5.3")
+    implementation("androidx.camera:camera-view:1.5.3")
+    // ListenableFuture.await(): CameraX's provider and Camera2CameraControl are
+    // future-based, and the Shoot tab drives them from coroutines.
+    implementation("androidx.concurrent:concurrent-futures-ktx:1.2.0")
 }

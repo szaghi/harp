@@ -215,7 +215,7 @@ class TestLogCli:
         res = runner.invoke(app, ["log", "list", "--json", "--path", p])
         assert res.exit_code == 0, res.output
         data = json.loads(res.output)
-        assert data["api_version"] == "7"
+        assert data["api_version"] == "8"
         assert data["targets"][0]["target"] == "M31"
         assert data["targets"][0]["integration"] == "4h 30m"
 

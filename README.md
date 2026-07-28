@@ -1,13 +1,20 @@
 <div align="center">
 
 <!--
-  Absolute raw-GitHub URL, not a relative path: this README is also the PyPI
-  long_description (pyproject.toml `readme`), and PyPI does not resolve
-  repo-relative image paths. The file itself lives at assets/harp-icon.svg.
--->
-<img src="https://raw.githubusercontent.com/szaghi/harp/main/assets/harp-icon.svg" alt="HARP" width="132" height="132">
+  Icon left, wordmark right, on one line. An <h1> rather than `# HARP` because a
+  markdown heading always starts its own block, so the image could only ever sit
+  above the name. Inline HTML is the only form both GitHub and PyPI render, and
+  neither honours CSS — hence the `align` attribute rather than flexbox or an
+  inline `style`, which PyPI strips.
 
-# HARP
+  The src is an absolute raw-GitHub URL, not a relative path: this README is
+  also the PyPI long_description (pyproject.toml `readme`), and PyPI does not
+  resolve repo-relative image paths. The file lives at assets/harp-icon.svg.
+-->
+<h1>
+  <img src="https://raw.githubusercontent.com/szaghi/harp/main/assets/harp-icon.svg" alt="" width="132" height="132" align="middle">
+  HARP
+</h1>
 
 #### *image the sky your balcony can actually see*
 
